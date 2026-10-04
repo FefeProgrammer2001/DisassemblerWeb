@@ -1,0 +1,24 @@
+# docker compose up -d --build   →   http://localhost:36476
+services:
+  asmviz:
+    build: .
+    image: asmviz
+    ports:
+      # para acesso só local: "127.0.0.1:36476:36476"
+      - "36476:36476"
+    environment:
+      MAX_JOBS: "4"
+    restart: unless-stopped
+    # O servidor compila e executa qualquer código recebido: o contêiner roda
+    # sem privilégios, com sistema de arquivos somente leitura e limites.
+    read_only: true
+    tmpfs:
+      # trabalho de cada compilação; "exec" porque os programas rodam daqui
+      - /tmp:exec,size=1g
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 512
+    mem_limit: 3g
+    cpus: 2

@@ -1,5 +1,4 @@
 target/
-Cargo.lock
 *.wasm
 node_modules/
 dist/

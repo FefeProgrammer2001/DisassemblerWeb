@@ -1,0 +1,13 @@
+[package]
+name = "asmviz"
+version = "0.1.0"
+edition = "2021"
+description = "Visualizador de C/C++ → Assembly (x86_64/ARM64) e Java → bytecode, com execução passo a passo e mapa de memória"
+
+[dependencies]
+tiny_http = "0.12"
+serde_json = "1"
+regex = "1"
+
+[profile.release]
+opt-level = 3
