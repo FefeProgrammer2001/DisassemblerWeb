@@ -1,314 +1,890 @@
 <!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Código → Máquina</title>
-<style>
-  :root {
-    --bg: #0f1117;
-    --panel: #161a23;
-    --panel-2: #1c2130;
-    --border: #2a3142;
-    --text: #d7dce6;
-    --muted: #8590a6;
-    --accent: #5aa9ff;
-    --accent-2: #9d7bff;
-    --ok: #4cc38a;
-    --warn: #f0b43c;
-    --err: #ff6b6b;
-    --hl: rgba(90, 169, 255, .14);
-    --hl-strong: rgba(90, 169, 255, .32);
-    --chg: rgba(240, 180, 60, .35);
-    --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, Menlo, Consolas, monospace;
-  }
-  * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
-  body {
-    background: var(--bg); color: var(--text);
-    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    display: flex; flex-direction: column; overflow: hidden;
-  }
-  button, select, input, textarea { font: inherit; color: inherit; }
-  button, select {
-    background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px;
-    padding: 5px 10px; cursor: pointer;
-  }
-  button:hover:not(:disabled) { border-color: var(--accent); }
-  button:disabled { opacity: .45; cursor: default; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #08111f; font-weight: 600; }
-  .hidden { display: none !important; }
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Código → Máquina</title>
+    <style>
+      :root {
+        --bg: #0f1117;
+        --panel: #161a23;
+        --panel-2: #1c2130;
+        --border: #2a3142;
+        --text: #d7dce6;
+        --muted: #8590a6;
+        --accent: #5aa9ff;
+        --accent-2: #9d7bff;
+        --ok: #4cc38a;
+        --warn: #f0b43c;
+        --err: #ff6b6b;
+        --hl: rgba(90, 169, 255, 0.14);
+        --hl-strong: rgba(90, 169, 255, 0.32);
+        --chg: rgba(240, 180, 60, 0.35);
+        --mono:
+          "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, Menlo,
+          Consolas, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.45 system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      button,
+      select,
+      input,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+      button,
+      select {
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 5px 10px;
+        cursor: pointer;
+      }
+      button:hover:not(:disabled) {
+        border-color: var(--accent);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #08111f;
+        font-weight: 600;
+      }
+      .hidden {
+        display: none !important;
+      }
 
-  /* ---------- cabeçalho ---------- */
-  header {
-    display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;
-    padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel);
-  }
-  .brand { font-weight: 700; font-size: 16px; margin-right: 8px; }
-  .brand span { color: var(--accent); }
-  header label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
-  header .spacer { flex: 1; }
-  #tools { font-size: 12px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; }
-  .pill { padding: 2px 8px; border-radius: 99px; border: 1px solid var(--border); }
-  .pill.ok { color: var(--ok); border-color: rgba(76,195,138,.4); }
-  .pill.bad { color: var(--err); border-color: rgba(255,107,107,.4); }
+      /* ---------- cabeçalho ---------- */
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+        align-items: center;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+      .brand {
+        font-weight: 700;
+        font-size: 16px;
+        margin-right: 8px;
+      }
+      .brand span {
+        color: var(--accent);
+      }
+      header label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      header .spacer {
+        flex: 1;
+      }
+      #tools {
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .pill {
+        padding: 2px 8px;
+        border-radius: 99px;
+        border: 1px solid var(--border);
+      }
+      .pill.ok {
+        color: var(--ok);
+        border-color: rgba(76, 195, 138, 0.4);
+      }
+      .pill.bad {
+        color: var(--err);
+        border-color: rgba(255, 107, 107, 0.4);
+      }
 
-  /* ---------- painéis ---------- */
-  main {
-    flex: 1; min-height: 0; display: grid; gap: 1px; background: var(--border);
-    grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.15fr) minmax(340px, 1.35fr);
-  }
-  .panel { background: var(--panel); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-  .ph {
-    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-    border-bottom: 1px solid var(--border); background: var(--panel-2); flex-wrap: wrap;
-  }
-  .ph h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; margin: 0; color: var(--muted); flex: 1; }
-  .tabs { display: flex; gap: 2px; }
-  .tabs button { padding: 3px 9px; font-size: 12px; border-radius: 4px; }
-  .tabs button.active { background: var(--accent); color: #08111f; border-color: var(--accent); }
-  .chk { display: flex; gap: 4px; align-items: center; font-size: 12px; color: var(--muted); }
+      /* ---------- painéis ---------- */
+      main {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        gap: 1px;
+        background: var(--border);
+        grid-template-columns: minmax(260px, 1fr) minmax(300px, 1.15fr) minmax(
+            340px,
+            1.35fr
+          );
+      }
+      .panel {
+        background: var(--panel);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+      }
+      .ph {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel-2);
+        flex-wrap: wrap;
+      }
+      .ph h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0;
+        color: var(--muted);
+        flex: 1;
+      }
+      .tabs {
+        display: flex;
+        gap: 2px;
+      }
+      .tabs button {
+        padding: 3px 9px;
+        font-size: 12px;
+        border-radius: 4px;
+      }
+      .tabs button.active {
+        background: var(--accent);
+        color: #08111f;
+        border-color: var(--accent);
+      }
+      .chk {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        font-size: 12px;
+        color: var(--muted);
+      }
 
-  /* ---------- editor C ---------- */
-  .editor { flex: 1; min-height: 0; display: flex; position: relative; overflow: hidden; }
-  .gutter {
-    font: 13px/20px var(--mono); color: var(--muted); text-align: right; padding: 10px 8px 10px 0;
-    min-width: 42px; background: var(--panel-2); user-select: none; overflow: hidden; white-space: pre;
-  }
-  #src {
-    flex: 1; resize: none; border: 0; outline: 0; background: transparent;
-    font: 13px/20px var(--mono); padding: 10px 12px; tab-size: 4; white-space: pre; overflow: auto;
-  }
-  .codeview { flex: 1; min-height: 0; overflow: auto; font: 13px/20px var(--mono); padding: 10px 0; }
-  .cl { display: flex; white-space: pre; cursor: default; border-left: 3px solid transparent; }
-  .cl .n { width: 42px; padding-right: 8px; text-align: right; color: var(--muted); flex: none; user-select: none; }
-  .cl .c { padding-left: 9px; tab-size: 4; }
-  .cl.hl { background: var(--hl); }
-  .cl.cur { background: var(--hl-strong); }
-  .cl.cur .n { color: var(--text); }
-  .cl.cur .n::before { content: "▶ "; color: var(--accent); }
-  details.stdin { border-top: 1px solid var(--border); padding: 6px 12px; }
-  details.stdin summary { cursor: pointer; color: var(--muted); font-size: 12px; }
-  details.stdin textarea {
-    width: 100%; height: 70px; margin-top: 6px; background: var(--bg); border: 1px solid var(--border);
-    border-radius: 6px; font: 12px var(--mono); padding: 6px;
-  }
+      /* ---------- editor C ---------- */
+      .editor {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        position: relative;
+        overflow: hidden;
+      }
+      .gutter {
+        font: 13px/20px var(--mono);
+        color: var(--muted);
+        text-align: right;
+        padding: 10px 8px 10px 0;
+        min-width: 42px;
+        background: var(--panel-2);
+        user-select: none;
+        overflow: hidden;
+        white-space: pre;
+      }
+      #src {
+        flex: 1;
+        resize: none;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        font: 13px/20px var(--mono);
+        padding: 10px 12px;
+        tab-size: 4;
+        white-space: pre;
+        overflow: auto;
+      }
+      .codeview {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        font: 13px/20px var(--mono);
+        padding: 10px 0;
+      }
+      .cl {
+        display: flex;
+        white-space: pre;
+        cursor: default;
+        border-left: 3px solid transparent;
+      }
+      .cl .n {
+        width: 42px;
+        padding-right: 8px;
+        text-align: right;
+        color: var(--muted);
+        flex: none;
+        user-select: none;
+      }
+      .cl .c {
+        padding-left: 9px;
+        tab-size: 4;
+      }
+      .cl.hl {
+        background: var(--hl);
+      }
+      .cl.cur {
+        background: var(--hl-strong);
+      }
+      .cl.cur .n {
+        color: var(--text);
+      }
+      .cl.cur .n::before {
+        content: "▶ ";
+        color: var(--accent);
+      }
+      details.stdin {
+        border-top: 1px solid var(--border);
+        padding: 6px 12px;
+      }
+      details.stdin summary {
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      details.stdin textarea {
+        width: 100%;
+        height: 70px;
+        margin-top: 6px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font: 12px var(--mono);
+        padding: 6px;
+      }
 
-  /* ---------- assembly ---------- */
-  .asm { flex: 1; min-height: 0; overflow: auto; font: 12.5px/19px var(--mono); padding: 6px 0; }
-  .al { display: flex; white-space: pre; border-left: 3px solid transparent; padding-right: 10px; }
-  .al .addr { color: var(--muted); width: 74px; flex: none; text-align: right; padding-right: 10px; }
-  .al .code { padding-left: 6px; tab-size: 8; }
-  .al.label .code { color: var(--accent-2); font-weight: 600; padding-left: 0; }
-  .al.label { margin-top: 6px; }
-  .al.comment .code, .al.dir .code { color: var(--muted); }
-  .al.data .code { color: #c9a26b; }
-  .al.hl { background: var(--hl); }
-  .al.cur { background: var(--hl); }
-  .al.pc { background: var(--hl-strong); outline: 1px solid var(--accent); outline-offset: -1px; }
-  .al.pc .addr::before { content: "▶ "; color: var(--accent); }
-  .tk-m { color: #ffb86b; }
-  .tk-r { color: #7fd1ff; }
-  .tk-i { color: #b5e48c; }
-  .tk-s { color: #d6a4ff; }
-  .tk-c { color: var(--muted); font-style: italic; }
-  .empty { color: var(--muted); padding: 24px; text-align: center; font-size: 13px; }
+      /* ---------- assembly ---------- */
+      .asm {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        font: 12.5px/19px var(--mono);
+        padding: 6px 0;
+      }
+      .al {
+        display: flex;
+        white-space: pre;
+        border-left: 3px solid transparent;
+        padding-right: 10px;
+      }
+      .al .addr {
+        color: var(--muted);
+        width: 74px;
+        flex: none;
+        text-align: right;
+        padding-right: 10px;
+      }
+      .al .code {
+        padding-left: 6px;
+        tab-size: 8;
+      }
+      .al.label .code {
+        color: var(--accent-2);
+        font-weight: 600;
+        padding-left: 0;
+      }
+      .al.label {
+        margin-top: 6px;
+      }
+      .al.comment .code,
+      .al.dir .code {
+        color: var(--muted);
+      }
+      .al.data .code {
+        color: #c9a26b;
+      }
+      .al.hl {
+        background: var(--hl);
+      }
+      .al.cur {
+        background: var(--hl);
+      }
+      .al.pc {
+        background: var(--hl-strong);
+        outline: 1px solid var(--accent);
+        outline-offset: -1px;
+      }
+      .al.pc .addr::before {
+        content: "▶ ";
+        color: var(--accent);
+      }
+      .tk-m {
+        color: #ffb86b;
+      }
+      .tk-r {
+        color: #7fd1ff;
+      }
+      .tk-i {
+        color: #b5e48c;
+      }
+      .tk-s {
+        color: #d6a4ff;
+      }
+      .tk-c {
+        color: var(--muted);
+        font-style: italic;
+      }
+      .empty {
+        color: var(--muted);
+        padding: 24px;
+        text-align: center;
+        font-size: 13px;
+      }
 
-  /* ---------- memória ---------- */
-  .regs {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 2px 10px; padding: 8px 12px; border-bottom: 1px solid var(--border);
-    font: 11.5px/17px var(--mono); max-height: 30%; overflow: auto;
-  }
-  .reg { display: flex; gap: 6px; white-space: nowrap; border-radius: 3px; padding: 0 3px; }
-  .reg b { color: var(--muted); font-weight: 500; width: 46px; display: inline-block; }
-  .reg.chg { background: var(--chg); }
-  .reg.special b { color: var(--accent); }
-  .mem { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; font: 12px/18px var(--mono); }
-  .region { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
-  .rh {
-    padding: 5px 10px; font: 600 12px system-ui, sans-serif; display: flex; gap: 8px; align-items: baseline;
-    background: var(--panel-2); border-bottom: 1px solid var(--border);
-  }
-  .rh small { color: var(--muted); font-weight: 400; }
-  .region.stack .rh { color: #7fd1ff; }
-  .region.heap .rh { color: #b5e48c; }
-  .region.data .rh { color: #ffb86b; }
-  .region.rodata .rh { color: #c9a26b; }
-  .region.text .rh { color: #d6a4ff; }
-  .frame { margin: 6px; border: 1px solid var(--border); border-radius: 6px; }
-  .frame.curf { border-color: var(--accent); }
-  .fh { padding: 3px 8px; display: flex; gap: 10px; flex-wrap: wrap; background: rgba(255,255,255,.03); }
-  .fh .fn { color: var(--accent-2); font-weight: 600; }
-  .fh .meta { color: var(--muted); }
-  table.vars { width: 100%; border-collapse: collapse; }
-  table.vars td { padding: 2px 8px; border-top: 1px solid rgba(255,255,255,.04); vertical-align: top; }
-  table.vars td.a { color: var(--muted); width: 1%; white-space: nowrap; }
-  table.vars td.nm { white-space: nowrap; width: 1%; }
-  table.vars td.nm i { color: var(--muted); font-style: normal; font-size: 11px; }
-  table.vars td.v { word-break: break-all; }
-  table.vars tr.chg td.v { background: var(--chg); }
-  .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
-  .ptr { color: var(--accent); }
-  .gap { text-align: center; color: var(--muted); margin: -4px 0 6px; font-size: 11px; }
-  .bytes { padding: 4px 10px; color: var(--muted); word-break: break-all; }
-  .note { color: var(--muted); padding: 4px 10px; font-size: 11px; }
+      /* ---------- memória ---------- */
+      .regs {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 2px 10px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        font: 11.5px/17px var(--mono);
+        max-height: 30%;
+        overflow: auto;
+      }
+      .reg {
+        display: flex;
+        gap: 6px;
+        white-space: nowrap;
+        border-radius: 3px;
+        padding: 0 3px;
+      }
+      .reg b {
+        color: var(--muted);
+        font-weight: 500;
+        width: 46px;
+        display: inline-block;
+      }
+      .reg.chg {
+        background: var(--chg);
+      }
+      .reg.special b {
+        color: var(--accent);
+      }
+      .mem {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 10px 12px;
+        font: 12px/18px var(--mono);
+      }
+      .region {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 10px;
+        overflow: hidden;
+      }
+      .rh {
+        padding: 5px 10px;
+        font:
+          600 12px system-ui,
+          sans-serif;
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        background: var(--panel-2);
+        border-bottom: 1px solid var(--border);
+      }
+      .rh small {
+        color: var(--muted);
+        font-weight: 400;
+      }
+      .region.stack .rh {
+        color: #7fd1ff;
+      }
+      .region.heap .rh {
+        color: #b5e48c;
+      }
+      .region.data .rh {
+        color: #ffb86b;
+      }
+      .region.rodata .rh {
+        color: #c9a26b;
+      }
+      .region.text .rh {
+        color: #d6a4ff;
+      }
+      .frame {
+        margin: 6px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      .frame.curf {
+        border-color: var(--accent);
+      }
+      .fh {
+        padding: 3px 8px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .fh .fn {
+        color: var(--accent-2);
+        font-weight: 600;
+      }
+      .fh .meta {
+        color: var(--muted);
+      }
+      table.vars {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      table.vars td {
+        padding: 2px 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        vertical-align: top;
+      }
+      table.vars td.a {
+        color: var(--muted);
+        width: 1%;
+        white-space: nowrap;
+      }
+      table.vars td.nm {
+        white-space: nowrap;
+        width: 1%;
+      }
+      table.vars td.nm i {
+        color: var(--muted);
+        font-style: normal;
+        font-size: 11px;
+      }
+      table.vars td.v {
+        word-break: break-all;
+      }
+      table.vars tr.chg td.v {
+        background: var(--chg);
+      }
+      .sw {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 2px;
+        margin-right: 6px;
+      }
+      .ptr {
+        color: var(--accent);
+      }
+      .gap {
+        text-align: center;
+        color: var(--muted);
+        margin: -4px 0 6px;
+        font-size: 11px;
+      }
+      .bytes {
+        padding: 4px 10px;
+        color: var(--muted);
+        word-break: break-all;
+      }
+      .note {
+        color: var(--muted);
+        padding: 4px 10px;
+        font-size: 11px;
+      }
 
-  .region.jvm .rh { color: #7fd1ff; }
-  .region.methods .rh { color: #ffb86b; }
-  .jinfo { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 8px 12px; border-bottom: 1px solid var(--border); font: 11.5px/17px var(--mono); }
-  .jinfo b { color: var(--muted); font-weight: 500; margin-right: 4px; }
-  .obj { color: #b5e48c; }
+      .region.jvm .rh {
+        color: #7fd1ff;
+      }
+      .region.methods .rh {
+        color: #ffb86b;
+      }
+      .jinfo {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        font: 11.5px/17px var(--mono);
+      }
+      .jinfo b {
+        color: var(--muted);
+        font-weight: 500;
+        margin-right: 4px;
+      }
+      .obj {
+        color: #b5e48c;
+      }
 
-  /* hex dump da pilha */
-  table.hex { border-collapse: collapse; width: 100%; }
-  table.hex td { padding: 1px 6px; white-space: nowrap; }
-  table.hex td.a { color: var(--muted); }
-  table.hex td.q { color: var(--muted); }
-  table.hex td.lab { color: var(--accent); font-size: 11px; white-space: normal; }
-  table.hex tr.sp td.a { color: var(--accent); font-weight: 700; }
-  table.hex tr.red td { opacity: .5; }
-  .b { padding: 0 1px; border-radius: 2px; }
-  .b.chg { outline: 1px solid var(--warn); background: var(--chg); }
+      /* hex dump da pilha */
+      table.hex {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      table.hex td {
+        padding: 1px 6px;
+        white-space: nowrap;
+      }
+      table.hex td.a {
+        color: var(--muted);
+      }
+      table.hex td.q {
+        color: var(--muted);
+      }
+      table.hex td.lab {
+        color: var(--accent);
+        font-size: 11px;
+        white-space: normal;
+      }
+      table.hex tr.sp td.a {
+        color: var(--accent);
+        font-weight: 700;
+      }
+      table.hex tr.red td {
+        opacity: 0.5;
+      }
+      .b {
+        padding: 0 1px;
+        border-radius: 2px;
+      }
+      .b.chg {
+        outline: 1px solid var(--warn);
+        background: var(--chg);
+      }
 
-  /* ---------- rodapé ---------- */
-  footer { border-top: 1px solid var(--border); background: var(--panel); }
-  .controls { display: flex; align-items: center; gap: 6px; padding: 8px 16px; flex-wrap: wrap; }
-  .controls button { min-width: 36px; }
-  .controls input[type=range]#timeline { flex: 1; min-width: 160px; }
-  #stepInfo { font: 12px var(--mono); color: var(--muted); min-width: 260px; }
-  #stepInfo b { color: var(--text); font-weight: 500; }
-  .bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); height: 150px; }
-  .out { background: var(--panel); display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-  .out h3 { margin: 0; padding: 4px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: var(--panel-2); }
-  .out pre { margin: 0; flex: 1; overflow: auto; padding: 6px 12px; font: 12px/1.4 var(--mono); white-space: pre-wrap; }
-  #diag .err { color: var(--err); }
-  #diag .warn { color: var(--warn); }
-  #diag .cmd { color: var(--muted); }
-  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--muted); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  /* entrada interativa: aparece quando o programa pausa lendo o stdin */
-  .inputbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 12px; border-top: 1px solid var(--warn); background: var(--panel-2); }
-  .inputbar .prompt { color: var(--warn); font-size: 12px; }
-  .inputbar input { flex: 1; min-width: 120px; font: 12px/1.4 var(--mono); background: var(--panel); color: inherit; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
-  .inputbar input:focus { outline: none; border-color: var(--warn); }
+      /* ---------- rodapé ---------- */
+      footer {
+        border-top: 1px solid var(--border);
+        background: var(--panel);
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        flex-wrap: wrap;
+      }
+      .controls button {
+        min-width: 36px;
+      }
+      .controls input[type="range"]#timeline {
+        flex: 1;
+        min-width: 160px;
+      }
+      #stepInfo {
+        font: 12px var(--mono);
+        color: var(--muted);
+        min-width: 260px;
+      }
+      #stepInfo b {
+        color: var(--text);
+        font-weight: 500;
+      }
+      .bottom {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        background: var(--border);
+        height: 150px;
+      }
+      .out {
+        background: var(--panel);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+      }
+      .out h3 {
+        margin: 0;
+        padding: 4px 12px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        background: var(--panel-2);
+      }
+      .out pre {
+        margin: 0;
+        flex: 1;
+        overflow: auto;
+        padding: 6px 12px;
+        font: 12px/1.4 var(--mono);
+        white-space: pre-wrap;
+      }
+      #diag .err {
+        color: var(--err);
+      }
+      #diag .warn {
+        color: var(--warn);
+      }
+      #diag .cmd {
+        color: var(--muted);
+      }
+      .spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid var(--muted);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        vertical-align: -2px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      /* entrada interativa: aparece quando o programa pausa lendo o stdin */
+      .inputbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-top: 1px solid var(--warn);
+        background: var(--panel-2);
+      }
+      .inputbar .prompt {
+        color: var(--warn);
+        font-size: 12px;
+      }
+      .inputbar input {
+        flex: 1;
+        min-width: 120px;
+        font: 12px/1.4 var(--mono);
+        background: var(--panel);
+        color: inherit;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 4px 8px;
+      }
+      .inputbar input:focus {
+        outline: none;
+        border-color: var(--warn);
+      }
 
-  @media (max-width: 1100px) {
-    body { overflow: auto; }
-    main { grid-template-columns: 1fr; }
-    .panel { height: 70vh; }
-    .bottom { grid-template-columns: 1fr; height: auto; }
-    .out pre { max-height: 160px; }
-  }
-</style>
-</head>
-<body>
-<header>
-  <div class="brand"><span id="brandLang">C</span> → <span id="brandTarget">Assembly</span></div>
-  <label>Linguagem
-    <select id="lang">
-      <option value="c">C</option>
-      <option value="cpp">C++</option>
-      <option value="rust">Rust</option>
-      <option value="java">Java</option>
-    </select>
-  </label>
-  <label id="archWrap">Arquitetura
-    <select id="arch">
-      <option value="x86_64">x86_64</option>
-      <option value="arm64">ARMv8 / ARM64 (AArch64)</option>
-    </select>
-  </label>
-  <label id="syntaxWrap">Sintaxe
-    <select id="syntax">
-      <option value="att">AT&amp;T</option>
-      <option value="intel">Intel</option>
-    </select>
-  </label>
-  <label id="optWrap">Otimização
-    <select id="opt">
-      <option>-O0</option><option>-O1</option><option>-O2</option><option>-O3</option><option>-Os</option>
-    </select>
-  </label>
-  <label>Máx. passos <input id="maxSteps" type="number" min="1" max="20000" value="3000" style="width:80px;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;padding:4px 6px"></label>
-  <label>Exemplo <select id="examples"></select></label>
-  <button id="btnCompile" title="Ctrl+Enter">Compilar</button>
-  <button id="btnRun" class="primary" title="Ctrl+Shift+Enter">Executar passo a passo</button>
-  <span class="spacer"></span>
-  <span id="tools"></span>
-</header>
-
-<main>
-  <section class="panel">
-    <div class="ph">
-      <h2 id="codeTitle">Código C</h2>
-      <button id="btnEdit" class="hidden">Editar</button>
-    </div>
-    <div class="editor" id="editor">
-      <div class="gutter" id="gutter"></div>
-      <textarea id="src" spellcheck="false" autocomplete="off"></textarea>
-    </div>
-    <div class="codeview hidden" id="codeView"></div>
-    <details class="stdin">
-      <summary>Entrada do programa (stdin)</summary>
-      <textarea id="stdin" spellcheck="false" placeholder="Opcional: texto entregue de antemão a scanf / cin / read_line / Scanner. O que faltar é pedido durante a execução."></textarea>
-    </details>
-  </section>
-
-  <section class="panel">
-    <div class="ph">
-      <h2 id="asmTitle">Assembly</h2>
-      <div class="tabs" id="asmTabs">
-        <button data-tab="disasm" class="active" id="tabDisasm" title="Desmontagem do binário com endereços reais (llvm-objdump)">Binário</button>
-        <button data-tab="s" id="tabS" title="Saída do compilador (clang -S)">clang -S</button>
+      @media (max-width: 1100px) {
+        body {
+          overflow: auto;
+        }
+        main {
+          grid-template-columns: 1fr;
+        }
+        .panel {
+          height: 70vh;
+        }
+        .bottom {
+          grid-template-columns: 1fr;
+          height: auto;
+        }
+        .out pre {
+          max-height: 160px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <span id="brandLang">C</span> → <span id="brandTarget">Assembly</span>
       </div>
-      <label class="chk" id="dirWrap"><input type="checkbox" id="showDir"> diretivas</label>
-    </div>
-    <div class="asm" id="asmView"><div class="empty">Compile um programa para ver o assembly.</div></div>
-  </section>
+      <label
+        >Linguagem
+        <select id="lang">
+          <option value="c">C</option>
+          <option value="cpp">C++</option>
+          <option value="rust">Rust</option>
+          <option value="java">Java</option>
+        </select>
+      </label>
+      <label id="archWrap"
+        >Arquitetura
+        <select id="arch">
+          <option value="x86_64">x86_64</option>
+          <option value="arm64">ARMv8 / ARM64 (AArch64)</option>
+        </select>
+      </label>
+      <label id="syntaxWrap"
+        >Sintaxe
+        <select id="syntax">
+          <option value="att">AT&amp;T</option>
+          <option value="intel">Intel</option>
+        </select>
+      </label>
+      <label id="optWrap"
+        >Otimização
+        <select id="opt">
+          <option>-O0</option>
+          <option>-O1</option>
+          <option>-O2</option>
+          <option>-O3</option>
+          <option>-Os</option>
+        </select>
+      </label>
+      <label
+        >Máx. passos
+        <input
+          id="maxSteps"
+          type="number"
+          min="1"
+          max="20000"
+          value="3000"
+          style="
+            width: 80px;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 6px;
+          "
+      /></label>
+      <label
+        >Exemplo
+        <select id="examples"></select
+      ></label>
+      <button id="btnCompile" title="Ctrl+Enter">Compilar</button>
+      <button id="btnRun" class="primary" title="Ctrl+Shift+Enter">
+        Executar passo a passo
+      </button>
+      <span class="spacer"></span>
+      <span id="tools"></span>
+    </header>
 
-  <section class="panel">
-    <div class="ph">
-      <h2>Memória</h2>
-      <div class="tabs" id="memTabs">
-        <button data-tab="map" class="active">Mapa</button>
-        <button data-tab="hex" id="tabHex">Pilha (bytes)</button>
+    <main>
+      <section class="panel">
+        <div class="ph">
+          <h2 id="codeTitle">Código C</h2>
+          <button id="btnEdit" class="hidden">Editar</button>
+        </div>
+        <div class="editor" id="editor">
+          <div class="gutter" id="gutter"></div>
+          <textarea id="src" spellcheck="false" autocomplete="off"></textarea>
+        </div>
+        <div class="codeview hidden" id="codeView"></div>
+        <details class="stdin">
+          <summary>Entrada do programa (stdin)</summary>
+          <textarea
+            id="stdin"
+            spellcheck="false"
+            placeholder="Opcional: texto entregue de antemão a scanf / cin / read_line / Scanner. O que faltar é pedido durante a execução."
+          ></textarea>
+        </details>
+      </section>
+
+      <section class="panel">
+        <div class="ph">
+          <h2 id="asmTitle">Assembly</h2>
+          <div class="tabs" id="asmTabs">
+            <button
+              data-tab="disasm"
+              class="active"
+              id="tabDisasm"
+              title="Desmontagem do binário com endereços reais (llvm-objdump)"
+            >
+              Binário
+            </button>
+            <button
+              data-tab="s"
+              id="tabS"
+              title="Saída do compilador (clang -S)"
+            >
+              clang -S
+            </button>
+          </div>
+          <label class="chk" id="dirWrap"
+            ><input type="checkbox" id="showDir" /> diretivas</label
+          >
+        </div>
+        <div class="asm" id="asmView">
+          <div class="empty">Compile um programa para ver o assembly.</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="ph">
+          <h2>Memória</h2>
+          <div class="tabs" id="memTabs">
+            <button data-tab="map" class="active">Mapa</button>
+            <button data-tab="hex" id="tabHex">Pilha (bytes)</button>
+          </div>
+        </div>
+        <div class="regs" id="regs"></div>
+        <div class="mem" id="memView">
+          <div class="empty">
+            Clique em “Executar passo a passo” para acompanhar registradores,
+            pilha, heap e dados globais.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="controls">
+        <button id="bFirst" title="Início (Home)">⏮</button>
+        <button id="bPrevLine" title="Linha C anterior (↑)">⏪ C</button>
+        <button id="bPrev" title="Instrução anterior (←)">◀</button>
+        <button id="bPlay" title="Reproduzir / pausar (espaço)">▶</button>
+        <button id="bNext" title="Próxima instrução (→)">▶|</button>
+        <button id="bNextLine" title="Próxima linha C (↓)">C ⏩</button>
+        <button id="bLast" title="Fim (End)">⏭</button>
+        <label class="chk"
+          >reproduzir por
+          <select id="playMode">
+            <option value="line">linha C</option>
+            <option value="insn">instrução</option>
+          </select>
+        </label>
+        <label class="chk"
+          >velocidade
+          <input
+            type="range"
+            id="speed"
+            min="50"
+            max="1500"
+            value="500"
+            style="width: 90px"
+            title="intervalo em ms"
+        /></label>
+        <input type="range" id="timeline" min="0" max="0" value="0" disabled />
+        <span id="stepInfo">—</span>
       </div>
-    </div>
-    <div class="regs" id="regs"></div>
-    <div class="mem" id="memView"><div class="empty">Clique em “Executar passo a passo” para acompanhar registradores, pilha, heap e dados globais.</div></div>
-  </section>
-</main>
+      <div class="bottom">
+        <div class="out">
+          <h3>Saída do programa</h3>
+          <pre id="stdout"></pre>
+          <form id="inputBar" class="inputbar hidden" autocomplete="off">
+            <span class="prompt">⌨ O programa está esperando entrada:</span>
+            <input
+              id="inputText"
+              spellcheck="false"
+              placeholder="digite e pressione Enter"
+            />
+            <button type="submit" class="primary" id="btnSend">Enviar</button>
+            <button
+              type="button"
+              id="btnEof"
+              title="Fecha a entrada do programa (Ctrl+D)"
+            >
+              EOF
+            </button>
+          </form>
+        </div>
+        <div class="out">
+          <h3>Compilador / depurador</h3>
+          <pre id="diag"></pre>
+        </div>
+      </div>
+    </footer>
 
-<footer>
-  <div class="controls">
-    <button id="bFirst" title="Início (Home)">⏮</button>
-    <button id="bPrevLine" title="Linha C anterior (↑)">⏪ C</button>
-    <button id="bPrev" title="Instrução anterior (←)">◀</button>
-    <button id="bPlay" title="Reproduzir / pausar (espaço)">▶</button>
-    <button id="bNext" title="Próxima instrução (→)">▶|</button>
-    <button id="bNextLine" title="Próxima linha C (↓)">C ⏩</button>
-    <button id="bLast" title="Fim (End)">⏭</button>
-    <label class="chk">reproduzir por
-      <select id="playMode"><option value="line">linha C</option><option value="insn">instrução</option></select>
-    </label>
-    <label class="chk">velocidade <input type="range" id="speed" min="50" max="1500" value="500" style="width:90px" title="intervalo em ms"></label>
-    <input type="range" id="timeline" min="0" max="0" value="0" disabled>
-    <span id="stepInfo">—</span>
-  </div>
-  <div class="bottom">
-    <div class="out"><h3>Saída do programa</h3><pre id="stdout"></pre>
-      <form id="inputBar" class="inputbar hidden" autocomplete="off">
-        <span class="prompt">⌨ O programa está esperando entrada:</span>
-        <input id="inputText" spellcheck="false" placeholder="digite e pressione Enter">
-        <button type="submit" class="primary" id="btnSend">Enviar</button>
-        <button type="button" id="btnEof" title="Fecha a entrada do programa (Ctrl+D)">EOF</button>
-      </form>
-    </div>
-    <div class="out"><h3>Compilador / depurador</h3><pre id="diag"></pre></div>
-  </div>
-</footer>
-
-<script src="app.js"></script>
-</body>
+    <script src="app.js"></script>
+  </body>
 </html>

@@ -80,7 +80,9 @@ fn tools() -> Value {
         .and_then(|mut d| d.next())
         .and_then(|e| e.ok())
         .map(|e| e.path().to_string_lossy().into_owned());
-    let sysroot_ok = std::path::Path::new(&c.sysroot).join("include/stdio.h").exists();
+    let sysroot_ok = std::path::Path::new(&c.sysroot)
+        .join("include/stdio.h")
+        .exists();
     json!({
         "clang": util::which(&c.clang),
         "clang++": util::which(&c.clangxx),
@@ -126,10 +128,20 @@ impl Drop for JobGuard {
 
 fn read_json(req: &mut Request) -> Result<Value, Response<std::io::Cursor<Vec<u8>>>> {
     let mut body = Vec::new();
-    if req.as_reader().take(MAX_BODY as u64 + 1).read_to_end(&mut body).is_err() || body.len() > MAX_BODY {
-        return Err(json_response(&json!({"ok": false, "diagnostics": "requisição muito grande ou inválida"}), 413));
+    if req
+        .as_reader()
+        .take(MAX_BODY as u64 + 1)
+        .read_to_end(&mut body)
+        .is_err()
+        || body.len() > MAX_BODY
+    {
+        return Err(json_response(
+            &json!({"ok": false, "diagnostics": "requisição muito grande ou inválida"}),
+            413,
+        ));
     }
-    serde_json::from_slice::<Value>(&body).map_err(|_| json_response(&json!({"ok": false, "diagnostics": "JSON inválido"}), 400))
+    serde_json::from_slice::<Value>(&body)
+        .map_err(|_| json_response(&json!({"ok": false, "diagnostics": "JSON inválido"}), 400))
 }
 
 fn build(r: &Value, ctl: Option<&mut session::InputCtl>) -> Value {
@@ -149,7 +161,10 @@ fn handle_build(req: &mut Request) -> Response<std::io::Cursor<Vec<u8>>> {
     };
     if ACTIVE.fetch_add(1, Ordering::SeqCst) >= config().max_jobs {
         ACTIVE.fetch_sub(1, Ordering::SeqCst);
-        return json_response(&json!({"ok": false, "diagnostics": "servidor ocupado; tente novamente em instantes"}), 503);
+        return json_response(
+            &json!({"ok": false, "diagnostics": "servidor ocupado; tente novamente em instantes"}),
+            503,
+        );
     }
     let guard = JobGuard;
     if !r["trace"].as_bool().unwrap_or(false) {
@@ -166,12 +181,17 @@ fn handle_build(req: &mut Request) -> Response<std::io::Cursor<Vec<u8>>> {
 }
 
 fn handle_static(path: &str) -> Response<std::io::Cursor<Vec<u8>>> {
-    let rel = if path == "/" { "index.html" } else { path.trim_start_matches('/') };
+    let rel = if path == "/" {
+        "index.html"
+    } else {
+        path.trim_start_matches('/')
+    };
     if rel.split('/').any(|p| p == ".." || p.starts_with('.')) {
         return Response::from_string("proibido").with_status_code(403);
     }
     match std::fs::read(config().static_dir.join(rel)) {
-        Ok(data) => Response::from_data(data).with_header(Header::from_bytes("Content-Type", mime(rel)).unwrap()),
+        Ok(data) => Response::from_data(data)
+            .with_header(Header::from_bytes("Content-Type", mime(rel)).unwrap()),
         Err(_) => Response::from_string("não encontrado").with_status_code(404),
     }
 }
@@ -183,7 +203,10 @@ fn handle(mut req: Request) {
     let resp = match (&method, path.as_str()) {
         (Method::Get, "/api/tools") => json_response(&tools(), 200),
         (Method::Post, "/api/build") => {
-            println!("{} POST /api/build", req.remote_addr().map(|a| a.to_string()).unwrap_or_default());
+            println!(
+                "{} POST /api/build",
+                req.remote_addr().map(|a| a.to_string()).unwrap_or_default()
+            );
             handle_build(&mut req)
         }
         (Method::Post, "/api/input") => match read_json(&mut req) {
@@ -205,7 +228,10 @@ fn lan_ip() -> Option<String> {
 
 fn main() {
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".into());
-    let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(36476);
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(36476);
     let server = match Server::http((host.as_str(), port)) {
         Ok(s) => s,
         Err(e) => {

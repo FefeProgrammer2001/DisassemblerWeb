@@ -56,7 +56,11 @@ impl InputCtl {
     pub fn open_stdin(&mut self, dir: &Path) -> Result<PathBuf, String> {
         let fifo = dir.join("stdin.fifo");
         mkfifo(&fifo)?;
-        let mut pipe = OpenOptions::new().read(true).write(true).open(&fifo).map_err(|e| format!("erro ao abrir o stdin: {e}"))?;
+        let mut pipe = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&fifo)
+            .map_err(|e| format!("erro ao abrir o stdin: {e}"))?;
         let mut text = std::mem::take(&mut self.prefill);
         if text.len() > MAX_PREFILL {
             let mut cut = MAX_PREFILL;
@@ -65,7 +69,8 @@ impl InputCtl {
             }
             text.truncate(cut);
         }
-        pipe.write_all(text.as_bytes()).map_err(|e| format!("erro ao escrever no stdin: {e}"))?;
+        pipe.write_all(text.as_bytes())
+            .map_err(|e| format!("erro ao escrever no stdin: {e}"))?;
         let out = dir.join("stdout.txt");
         File::create(&out).map_err(|e| format!("erro ao criar a saída: {e}"))?;
         self.pipe = Some(pipe);
@@ -80,7 +85,12 @@ impl InputCtl {
 
     /// O programa está bloqueado lendo o stdin: envia os passos novos e espera
     /// a entrada do usuário. Devolve quanto tempo ficou parado.
-    pub fn request_input(&mut self, steps: &[Value], stdout: String, meta: &Value) -> Result<Duration, String> {
+    pub fn request_input(
+        &mut self,
+        steps: &[Value],
+        stdout: String,
+        meta: &Value,
+    ) -> Result<Duration, String> {
         let Some(pipe) = self.pipe.as_mut() else {
             return Err("o programa está esperando entrada, mas o stdin já foi fechado".into());
         };
@@ -93,15 +103,20 @@ impl InputCtl {
         self.sent = steps.len();
         self.paused_once = true;
         let t0 = Instant::now();
-        self.updates.send(msg).map_err(|_| "conexão com o navegador perdida".to_string())?;
+        self.updates
+            .send(msg)
+            .map_err(|_| "conexão com o navegador perdida".to_string())?;
         let input = match self.inputs.recv_timeout(INPUT_WAIT) {
             Ok(i) => i,
-            Err(RecvTimeoutError::Timeout) => return Err("tempo de espera pela entrada esgotado".into()),
+            Err(RecvTimeoutError::Timeout) => {
+                return Err("tempo de espera pela entrada esgotado".into())
+            }
             Err(RecvTimeoutError::Disconnected) => return Err("sessão encerrada".into()),
         };
         match input {
             Input::Text(s) => {
-                pipe.write_all(s.as_bytes()).map_err(|e| format!("erro ao escrever no stdin: {e}"))?;
+                pipe.write_all(s.as_bytes())
+                    .map_err(|e| format!("erro ao escrever no stdin: {e}"))?;
                 // eco, como o terminal faria
                 if let Some(p) = &self.stdout_path {
                     if let Ok(mut f) = OpenOptions::new().append(true).open(p) {
@@ -183,7 +198,13 @@ where
         sessions().lock().unwrap().remove(&id);
         let _ = ctl.updates.send(res);
     });
-    next_update(id, Handle { inputs: in_tx, updates: up_rx })
+    next_update(
+        id,
+        Handle {
+            inputs: in_tx,
+            updates: up_rx,
+        },
+    )
 }
 
 /// POST /api/input: {session, text} | {session, eof: true} | {session, cancel: true}

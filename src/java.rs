@@ -57,7 +57,10 @@ fn descriptor_to_type(d: &str) -> String {
         Some('F') => "float".to_string(),
         Some('D') => "double".to_string(),
         Some('L') => {
-            let full = base.trim_start_matches('L').trim_end_matches(';').replace('/', ".");
+            let full = base
+                .trim_start_matches('L')
+                .trim_end_matches(';')
+                .replace('/', ".");
             full.rsplit('.').next().unwrap_or(&full).to_string()
         }
         _ => base.to_string(),
@@ -123,18 +126,27 @@ fn analyze(code: &str) -> (String, String) {
         .captures_iter(code)
         .map(|c| (c.get(0).unwrap().start(), c[1].to_string()))
         .collect();
-    let main_pos = rx!(r"static\s+(?:public\s+)?void\s+main\s*\(").find(code).map(|m| m.start());
+    let main_pos = rx!(r"static\s+(?:public\s+)?void\s+main\s*\(")
+        .find(code)
+        .map(|m| m.start());
     // classes cujo corpo contém o main, da mais externa para a mais interna
     let chain: Vec<String> = match main_pos {
         Some(p) => classes
             .iter()
-            .filter(|(s, _)| body_range(code, *s).map(|(a, b)| a < p && p < b).unwrap_or(false))
+            .filter(|(s, _)| {
+                body_range(code, *s)
+                    .map(|(a, b)| a < p && p < b)
+                    .unwrap_or(false)
+            })
             .map(|(_, n)| n.clone())
             .collect(),
         None => vec![],
     };
     let main_class = if chain.is_empty() {
-        classes.first().map(|(_, n)| n.clone()).unwrap_or_else(|| "Main".to_string())
+        classes
+            .first()
+            .map(|(_, n)| n.clone())
+            .unwrap_or_else(|| "Main".to_string())
     } else {
         chain.join("$")
     };
@@ -157,7 +169,10 @@ fn class_files(dir: &Path, base: &Path, out: &mut Vec<String>) {
             class_files(&p, base, out);
         } else if p.extension().map(|x| x == "class").unwrap_or(false) {
             if let Ok(rel) = p.strip_prefix(base) {
-                let s = rel.to_string_lossy().trim_end_matches(".class").replace('/', ".");
+                let s = rel
+                    .to_string_lossy()
+                    .trim_end_matches(".class")
+                    .replace('/', ".");
                 out.push(s);
             }
         }
@@ -190,7 +205,11 @@ fn parse_javap(text: &str) -> (Vec<Value>, Vec<StaticField>, HashMap<String, Vec
                 continue;
             }
             let bci = v["addr"].as_u64().unwrap_or(0);
-            let line = lnt.iter().filter(|(_, s)| *s <= bci).max_by_key(|(_, s)| *s).map(|(l, _)| *l);
+            let line = lnt
+                .iter()
+                .filter(|(_, s)| *s <= bci)
+                .max_by_key(|(_, s)| *s)
+                .map(|(l, _)| *l);
             v["cline"] = json!(line);
         }
         lnt.clear();
@@ -245,7 +264,11 @@ fn parse_javap(text: &str) -> (Vec<Value>, Vec<StaticField>, HashMap<String, Vec
                     let name = toks[toks.len() - 1].to_string();
                     let ty = toks[toks.len() - 2];
                     let ty = ty.rsplit('.').next().unwrap_or(ty).to_string();
-                    statics.push(StaticField { class: cls.clone(), name, ty });
+                    statics.push(StaticField {
+                        class: cls.clone(),
+                        name,
+                        ty,
+                    });
                 }
             }
             continue;
@@ -275,7 +298,9 @@ fn parse_javap(text: &str) -> (Vec<Value>, Vec<StaticField>, HashMap<String, Vec
                         in_switch = true;
                     }
                     let bci: u64 = c[1].parse().unwrap_or(0);
-                    out.push(json!({"kind": "insn", "t": text, "addr": bci, "m": key, "cline": null}));
+                    out.push(
+                        json!({"kind": "insn", "t": text, "addr": bci, "m": key, "cline": null}),
+                    );
                 }
             }
             Sec::Lnt => {
@@ -310,7 +335,9 @@ pub fn build(req: &Value, ctl: Option<&mut InputCtl>) -> Value {
 
     let dir = match TempDir::new() {
         Ok(d) => d,
-        Err(e) => return json!({"ok": false, "diagnostics": format!("erro ao criar diretório temporário: {e}")}),
+        Err(e) => {
+            return json!({"ok": false, "diagnostics": format!("erro ao criar diretório temporário: {e}")})
+        }
     };
     let w = dir.path();
     let _ = fs::create_dir_all(w.join("classes"));
@@ -319,7 +346,15 @@ pub fn build(req: &Value, ctl: Option<&mut InputCtl>) -> Value {
     }
 
     let mut commands = Vec::new();
-    let javac = vec![cfg.javac.clone(), "-g".into(), "-encoding".into(), "UTF-8".into(), "-d".into(), "classes".into(), file.clone()];
+    let javac = vec![
+        cfg.javac.clone(),
+        "-g".into(),
+        "-encoding".into(),
+        "UTF-8".into(),
+        "-d".into(),
+        "classes".into(),
+        file.clone(),
+    ];
     commands.push(shown(&javac));
     let r = run(&javac, w, COMPILE_TIMEOUT);
     let mut diag = r.stderr.clone() + &r.stdout;
@@ -330,7 +365,15 @@ pub fn build(req: &Value, ctl: Option<&mut InputCtl>) -> Value {
     let mut classes = Vec::new();
     class_files(&w.join("classes"), &w.join("classes"), &mut classes);
     classes.sort();
-    let mut javap = vec![cfg.javap.clone(), "-c".into(), "-l".into(), "-p".into(), "-constants".into(), "-cp".into(), "classes".into()];
+    let mut javap = vec![
+        cfg.javap.clone(),
+        "-c".into(),
+        "-l".into(),
+        "-p".into(),
+        "-constants".into(),
+        "-cp".into(),
+        "classes".into(),
+    ];
     javap.extend(classes.iter().cloned());
     commands.push(shown(&javap));
     let jp = run(&javap, w, COMPILE_TIMEOUT);
@@ -370,7 +413,13 @@ struct Jdb {
 }
 
 enum Event {
-    Stop { kind: String, class: String, method: String, line: u64, bci: u64 },
+    Stop {
+        kind: String,
+        class: String,
+        method: String,
+        line: u64,
+        bci: u64,
+    },
     Exit,
 }
 
@@ -379,7 +428,11 @@ fn ends_with_prompt(s: &str) -> bool {
 }
 
 fn num(s: &str) -> u64 {
-    s.chars().filter(|c| c.is_ascii_digit()).collect::<String>().parse().unwrap_or(0)
+    s.chars()
+        .filter(|c| c.is_ascii_digit())
+        .collect::<String>()
+        .parse()
+        .unwrap_or(0)
 }
 
 impl Jdb {
@@ -408,7 +461,14 @@ impl Jdb {
                 }
             });
         }
-        Ok(Jdb { child, stdin, rx, buf: Vec::new(), eof: false, deadline })
+        Ok(Jdb {
+            child,
+            stdin,
+            rx,
+            buf: Vec::new(),
+            eof: false,
+            deadline,
+        })
     }
 
     fn send(&mut self, c: &str) -> Result<(), String> {
@@ -425,7 +485,11 @@ impl Jdb {
 
     /// Como `read_until`, mas com um limite opcional próprio: ao atingi-lo
     /// devolve o que já foi lido em vez de falhar.
-    fn read_until_or(&mut self, done: impl Fn(&str) -> bool, limit: Option<Instant>) -> Result<String, String> {
+    fn read_until_or(
+        &mut self,
+        done: impl Fn(&str) -> bool,
+        limit: Option<Instant>,
+    ) -> Result<String, String> {
         loop {
             let text = String::from_utf8_lossy(&self.buf).into_owned();
             if done(&text) || self.eof {
@@ -439,7 +503,9 @@ impl Jdb {
             let rem = end.saturating_duration_since(Instant::now());
             match self.rx.recv_timeout(rem) {
                 Ok(chunk) => self.buf.extend(chunk),
-                Err(RecvTimeoutError::Timeout) if limit.is_some() && Instant::now() < self.deadline => {
+                Err(RecvTimeoutError::Timeout)
+                    if limit.is_some() && Instant::now() < self.deadline =>
+                {
                     let text = String::from_utf8_lossy(&self.buf).into_owned();
                     self.buf.clear();
                     return Ok(text);
@@ -461,13 +527,16 @@ impl Jdb {
     /// Espera um evento (passo concluído, breakpoint, exceção) ou o fim do programa.
     fn wait_event(&mut self) -> Result<Event, String> {
         let slice = self.deadline.saturating_duration_since(Instant::now());
-        self.wait_event_for(slice)?.ok_or_else(|| "tempo limite do jdb esgotado".to_string())
+        self.wait_event_for(slice)?
+            .ok_or_else(|| "tempo limite do jdb esgotado".to_string())
     }
 
     /// Como `wait_event`, mas desiste após `slice` devolvendo `None`; a saída
     /// parcial fica no buffer para a próxima chamada.
     fn wait_event_for(&mut self, slice: Duration) -> Result<Option<Event>, String> {
-        let ev_re = rx!(r#"(Step completed|Breakpoint hit|Exception occurred): .*?"thread=[^"]*", ([^\s(]+)\(\), line=(-?[\d.,]+) bci=([\d.,]+)"#);
+        let ev_re = rx!(
+            r#"(Step completed|Breakpoint hit|Exception occurred): .*?"thread=[^"]*", ([^\s(]+)\(\), line=(-?[\d.,]+) bci=([\d.,]+)"#
+        );
         let exit_re = rx!(r"The application exited|The application has been disconnected");
         let done = |s: &str| {
             if exit_re.is_match(s) {
@@ -492,9 +561,14 @@ impl Jdb {
             if now >= self.deadline {
                 return Err("tempo limite do jdb esgotado".into());
             }
-            match self.rx.recv_timeout(end.min(self.deadline).saturating_duration_since(now)) {
+            match self
+                .rx
+                .recv_timeout(end.min(self.deadline).saturating_duration_since(now))
+            {
                 Ok(chunk) => self.buf.extend(chunk),
-                Err(RecvTimeoutError::Timeout) if Instant::now() < self.deadline => return Ok(None),
+                Err(RecvTimeoutError::Timeout) if Instant::now() < self.deadline => {
+                    return Ok(None)
+                }
                 Err(RecvTimeoutError::Timeout) => return Err("tempo limite do jdb esgotado".into()),
                 Err(RecvTimeoutError::Disconnected) => self.eof = true,
             }
@@ -505,7 +579,13 @@ impl Jdb {
                 Some(i) => (full[..i].to_string(), full[i + 1..].to_string()),
                 None => (String::new(), full),
             };
-            return Ok(Some(Event::Stop { kind: c[1].to_string(), class, method, line: num(&c[3]), bci: num(&c[4]) }));
+            return Ok(Some(Event::Stop {
+                kind: c[1].to_string(),
+                class,
+                method,
+                line: num(&c[3]),
+                bci: num(&c[4]),
+            }));
         }
         Ok(Some(Event::Exit))
     }
@@ -534,7 +614,11 @@ fn parse_where(text: &str) -> Vec<Frame> {
             let full = c[1].to_string();
             let i = full.rfind('.')?;
             let line = c[2].rsplit_once(':').map(|(_, n)| num(n));
-            Some(Frame { class: full[..i].to_string(), method: full[i + 1..].to_string(), line })
+            Some(Frame {
+                class: full[..i].to_string(),
+                method: full[i + 1..].to_string(),
+                line,
+            })
         })
         .collect()
 }
@@ -571,7 +655,11 @@ fn compact_dump(text: &str, name: &str) -> String {
         Some(i) => &text[i + name.len() + 3..],
         None => text,
     };
-    let lines: Vec<&str> = body.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    let lines: Vec<&str> = body
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
     let s = if lines.len() == 2 && lines[0] == "{" && lines[1] == "}" {
         "{}".to_string()
     } else if lines.len() >= 2 && lines[0] == "{" && lines[lines.len() - 1] == "}" {
@@ -604,24 +692,43 @@ impl<'a> JTracer<'a> {
             }
             if blocked_on_stdin(self.jvm_pid) {
                 let full = read_text(&self.stdout_path, 200_000 + self.out_prefix as usize);
-                let out = full.get(self.out_prefix as usize..).unwrap_or("").to_string();
+                let out = full
+                    .get(self.out_prefix as usize..)
+                    .unwrap_or("")
+                    .to_string();
                 let d = self.ctl.request_input(steps, out, &self.meta)?;
                 self.j.deadline += d;
             }
         }
     }
 
-    fn heap_entry(&mut self, expr: &str, from: &str, value: &str, heap: &mut Vec<Value>, seen: &mut HashSet<u64>) -> Result<(), String> {
-        let Some((ty, id)) = object_ref(value) else { return Ok(()) };
+    fn heap_entry(
+        &mut self,
+        expr: &str,
+        from: &str,
+        value: &str,
+        heap: &mut Vec<Value>,
+        seen: &mut HashSet<u64>,
+    ) -> Result<(), String> {
+        let Some((ty, id)) = object_ref(value) else {
+            return Ok(());
+        };
         if !seen.insert(id) {
             return Ok(());
         }
-        let big = rx!(r"\[(\d+)\]").captures(&ty).map(|c| num(&c[1]) as usize > MAX_DUMP_ARRAY).unwrap_or(false);
+        let big = rx!(r"\[(\d+)\]")
+            .captures(&ty)
+            .map(|c| num(&c[1]) as usize > MAX_DUMP_ARRAY)
+            .unwrap_or(false);
         let content = if big {
             format!("(vetor com mais de {MAX_DUMP_ARRAY} elementos — conteúdo omitido)")
         } else {
             let d = self.j.query(&format!("dump {expr}"))?;
-            if d.contains("Exception") { String::new() } else { compact_dump(&d, expr) }
+            if d.contains("Exception") {
+                String::new()
+            } else {
+                compact_dump(&d, expr)
+            }
         };
         heap.push(json!({"id": id, "type": ty, "from": from, "value": content}));
         Ok(())
@@ -651,7 +758,11 @@ impl<'a> JTracer<'a> {
             let mut vars = Vec::new();
             // Métodos de instância têm "this" no slot 0. Usa "dump" (e não "print",
             // que chamaria toString() dentro do programa).
-            let has_this = self.lvts.get(&key).map(|l| l.iter().any(|v| v.name == "this")).unwrap_or(false);
+            let has_this = self
+                .lvts
+                .get(&key)
+                .map(|l| l.iter().any(|v| v.name == "this"))
+                .unwrap_or(false);
             if has_this {
                 let d = self.j.query("dump this")?;
                 if !d.contains("Exception") && d.contains("this = ") {
@@ -694,10 +805,14 @@ impl<'a> JTracer<'a> {
             let value = if r.contains("Exception") || r.contains("not loaded") {
                 "(classe ainda não carregada)".to_string()
             } else {
-                r.split_once(" = ").map(|(_, v)| v.trim().to_string()).unwrap_or(r.clone())
+                r.split_once(" = ")
+                    .map(|(_, v)| v.trim().to_string())
+                    .unwrap_or(r.clone())
             };
             self.heap_entry(&expr, &expr, &value, &mut heap, &mut seen)?;
-            statics.push(json!({"class": s.class, "name": s.name, "type": s.ty, "value": cap(&value, 240)}));
+            statics.push(
+                json!({"class": s.class, "name": s.name, "type": s.ty, "value": cap(&value, 240)}),
+            );
         }
 
         Ok(json!({
@@ -711,7 +826,10 @@ impl<'a> JTracer<'a> {
 /// "Main$$Lambda/0x…" (ou "Main$$Lambda$14/…" em JDKs antigos): classe oculta
 /// que a JVM gera para um lambda ou method reference declarado em `Main`.
 fn is_user_lambda(class: &str, user: &HashSet<String>) -> bool {
-    class.split_once("$$Lambda").map(|(owner, _)| user.contains(owner)).unwrap_or(false)
+    class
+        .split_once("$$Lambda")
+        .map(|(owner, _)| user.contains(owner))
+        .unwrap_or(false)
 }
 
 fn trace(
@@ -725,7 +843,8 @@ fn trace(
 ) -> Value {
     let cfg = config();
     let meta = json!({"kind": "jvm"});
-    let fail = |e: String| json!({"steps": [], "status": "error", "error": e, "meta": meta, "stdout": ""});
+    let fail =
+        |e: String| json!({"steps": [], "status": "error", "error": e, "meta": meta, "stdout": ""});
     let deadline = Instant::now() + Duration::from_secs(TRACE_SECS);
     let port = free_port();
     let stdout_path = w.join("stdout.txt");
@@ -737,14 +856,21 @@ fn trace(
         "classes".into(),
         main_class.to_string(),
     ];
-    let jdb_cmd = vec![cfg.jdb.clone(), "-attach".into(), format!("127.0.0.1:{port}")];
+    let jdb_cmd = vec![
+        cfg.jdb.clone(),
+        "-attach".into(),
+        format!("127.0.0.1:{port}"),
+    ];
     let commands = vec![shown(&java_cmd), shown(&jdb_cmd)];
     let fifo = match ctl.open_stdin(w) {
         Ok(f) => f,
         Err(e) => return fail(e),
     };
     // em modo append, o eco da entrada (session.rs) fica na ordem certa
-    let (fin, fout) = match (File::open(&fifo), OpenOptions::new().append(true).open(&stdout_path)) {
+    let (fin, fout) = match (
+        File::open(&fifo),
+        OpenOptions::new().append(true).open(&stdout_path),
+    ) {
         (Ok(a), Ok(b)) => (a, b),
         _ => return fail("erro ao abrir arquivos de entrada/saída".into()),
     };
@@ -792,8 +918,15 @@ fn trace(
         }
         Ok(j) => {
             let mut t = JTracer {
-                j, user, statics, lvts, stdout_path: stdout_path.clone(), out_prefix,
-                ctl, jvm_pid: jvm.id(), meta: meta.clone(),
+                j,
+                user,
+                statics,
+                lvts,
+                stdout_path: stdout_path.clone(),
+                out_prefix,
+                ctl,
+                jvm_pid: jvm.id(),
+                meta: meta.clone(),
             };
             let res: Result<(), String> = (|| {
                 // Comandos enviados antes de o jdb terminar de se anexar são
@@ -801,7 +934,10 @@ fn trace(
                 t.j.read_until(|s| s.contains("VM Started"))?;
                 // o jdb processa o evento de início da VM de forma assíncrona e
                 // termina exibindo o prompt "main[1] "
-                t.j.read_until_or(ends_with_prompt, Some(Instant::now() + Duration::from_secs(5)))?;
+                t.j.read_until_or(
+                    ends_with_prompt,
+                    Some(Instant::now() + Duration::from_secs(5)),
+                )?;
                 t.j.send("exclude java.*,javax.*,sun.*,com.sun.*,jdk.*")?;
                 t.j.send(&format!("stop in {main_class}.main"))?;
                 t.j.read_until(|s| s.contains("breakpoint") || s.contains("Unable to set"))?;
@@ -809,7 +945,14 @@ fn trace(
                 let mut ev = t.wait_event(&steps)?;
                 let start = Instant::now();
                 loop {
-                    let Event::Stop { kind, class, method, line, bci } = ev else {
+                    let Event::Stop {
+                        kind,
+                        class,
+                        method,
+                        line,
+                        bci,
+                    } = ev
+                    else {
                         status = "exited".into();
                         return Ok(());
                     };
@@ -817,7 +960,9 @@ fn trace(
                         status = "limit".into();
                         return Ok(());
                     }
-                    if start.elapsed().saturating_sub(t.ctl.paused()) > Duration::from_secs(TRACE_SECS - 20) {
+                    if start.elapsed().saturating_sub(t.ctl.paused())
+                        > Duration::from_secs(TRACE_SECS - 20)
+                    {
                         status = "timeout".into();
                         return Ok(());
                     }

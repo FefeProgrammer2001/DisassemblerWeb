@@ -30,8 +30,20 @@ pub struct Lang {
     cxx: bool,
 }
 
-pub const C: Lang = Lang { id: "c", src: "prog.c", nobuf: "nobuf.c", std: "-std=gnu17", cxx: false };
-pub const CPP: Lang = Lang { id: "cpp", src: "prog.cpp", nobuf: "nobuf.cpp", std: "-std=gnu++20", cxx: true };
+pub const C: Lang = Lang {
+    id: "c",
+    src: "prog.c",
+    nobuf: "nobuf.c",
+    std: "-std=gnu17",
+    cxx: false,
+};
+pub const CPP: Lang = Lang {
+    id: "cpp",
+    src: "prog.cpp",
+    nobuf: "nobuf.cpp",
+    std: "-std=gnu++20",
+    cxx: true,
+};
 
 // Ligado junto ao programa: desativa o buffer do stdout para que a saída
 // apareça exatamente no passo em que foi produzida.
@@ -117,7 +129,9 @@ pub(crate) fn parse_s(text: &str, src: &str) -> (Vec<Value>, Vec<String>) {
             }
             ("label", None)
         } else if s.starts_with('.') {
-            let data = rx!(r"^\.(asciz|ascii|string|byte|short|hword|word|long|int|quad|xword|zero|space|float|double)\b");
+            let data = rx!(
+                r"^\.(asciz|ascii|string|byte|short|hword|word|long|int|quad|xword|zero|space|float|double)\b"
+            );
             (if data.is_match(s) { "data" } else { "dir" }, None)
         } else {
             ("insn", cur)
@@ -135,7 +149,12 @@ pub(crate) fn parse_nm(text: &str, names: &HashSet<String>) -> Vec<Func> {
             if p.len() == 4 && names.contains(p[3]) && "tTwW".contains(p[2]) {
                 let start = u64::from_str_radix(p[0], 16).ok()?;
                 let size = u64::from_str_radix(p[1], 16).ok()?;
-                Some(Func { name: p[3].to_string(), sym: p[3].to_string(), start, end: start + size })
+                Some(Func {
+                    name: p[3].to_string(),
+                    sym: p[3].to_string(),
+                    start,
+                    end: start + size,
+                })
             } else {
                 None
             }
@@ -152,12 +171,18 @@ pub(crate) fn parse_objdump(text: &str, src: &str) -> Vec<Value> {
         if let Some(c) = rx!(r"^([0-9a-f]+) <(.+)>:$").captures(line) {
             cur = None;
             let addr = u64::from_str_radix(&c[1], 16).unwrap_or(0);
-            out.push(json!({"kind": "label", "t": format!("{}:", &c[2]), "addr": addr, "cline": null}));
+            out.push(
+                json!({"kind": "label", "t": format!("{}:", &c[2]), "addr": addr, "cline": null}),
+            );
             continue;
         }
         if line.starts_with(';') {
             if let Some(c) = rx!(r"^;\s*(.+?):(\d+)(?::\d+)?\s*$").captures(line) {
-                cur = if c[1].ends_with(src) { c[2].parse().ok() } else { None };
+                cur = if c[1].ends_with(src) {
+                    c[2].parse().ok()
+                } else {
+                    None
+                };
             }
             continue;
         }
@@ -171,8 +196,17 @@ pub(crate) fn parse_objdump(text: &str, src: &str) -> Vec<Value> {
 }
 
 pub(crate) fn parse_sections(text: &str) -> Vec<Value> {
-    const KEEP: [&str; 9] =
-        [".text", ".rodata", ".data", ".bss", ".tdata", ".tbss", ".data.rel.ro", ".init_array", ".fini_array"];
+    const KEEP: [&str; 9] = [
+        ".text",
+        ".rodata",
+        ".data",
+        ".bss",
+        ".tdata",
+        ".tbss",
+        ".data.rel.ro",
+        ".init_array",
+        ".fini_array",
+    ];
     text.lines()
         .filter_map(|l| {
             let c = rx!(r"^\s*\d+\s+(\S+)\s+([0-9a-f]+)\s+([0-9a-f]+)").captures(l)?;
@@ -191,7 +225,11 @@ pub(crate) fn parse_sections(text: &str) -> Vec<Value> {
 pub(crate) fn demangler(texts: &[&str], cwd: &Path) -> HashMap<String, String> {
     let mut syms: Vec<String> = texts
         .iter()
-        .flat_map(|t| rx!(r"_[ZR][\w$.]+").find_iter(t).map(|m| m.as_str().to_string()))
+        .flat_map(|t| {
+            rx!(r"_[ZR][\w$.]+")
+                .find_iter(t)
+                .map(|m| m.as_str().to_string())
+        })
         .collect::<HashSet<_>>()
         .into_iter()
         .collect();
@@ -216,7 +254,9 @@ pub(crate) fn demangle(s: &str, map: &HashMap<String, String>) -> String {
         return s.to_string();
     }
     rx!(r"_[ZR][\w$.]+")
-        .replace_all(s, |c: &regex::Captures| map.get(&c[0]).cloned().unwrap_or_else(|| c[0].to_string()))
+        .replace_all(s, |c: &regex::Captures| {
+            map.get(&c[0]).cloned().unwrap_or_else(|| c[0].to_string())
+        })
         .into_owned()
 }
 
@@ -230,16 +270,24 @@ pub fn build(req: &Value, lang: &Lang, ctl: Option<&mut InputCtl>) -> Value {
     let (triple, extra) = match arch {
         "x86_64" => ("x86_64-linux-gnu", vec![]),
         // Cross compiling: alvo AArch64 + sysroot com headers/libs da glibc ARM64.
-        "arm64" => ("aarch64-linux-gnu", vec![format!("--sysroot={}", cfg.sysroot)]),
+        "arm64" => (
+            "aarch64-linux-gnu",
+            vec![format!("--sysroot={}", cfg.sysroot)],
+        ),
         _ => return json!({"ok": false, "diagnostics": "arquitetura inválida"}),
     };
     let intel = arch == "x86_64" && req["syntax"] == "intel";
-    let opt = req["opt"].as_str().filter(|o| OPT_LEVELS.contains(o)).unwrap_or("-O0");
+    let opt = req["opt"]
+        .as_str()
+        .filter(|o| OPT_LEVELS.contains(o))
+        .unwrap_or("-O0");
     let max_steps = req["maxSteps"].as_u64().unwrap_or(3000).clamp(1, 20000) as usize;
 
     let dir = match TempDir::new() {
         Ok(d) => d,
-        Err(e) => return json!({"ok": false, "diagnostics": format!("erro ao criar diretório temporário: {e}")}),
+        Err(e) => {
+            return json!({"ok": false, "diagnostics": format!("erro ao criar diretório temporário: {e}")})
+        }
     };
     let w = dir.path();
     let code = req["code"].as_str().unwrap_or("");
@@ -254,7 +302,13 @@ pub fn build(req: &Value, lang: &Lang, ctl: Option<&mut InputCtl>) -> Value {
     let compiler = if lang.cxx { &cfg.clangxx } else { &cfg.clang };
     let mut base = vec![compiler.clone(), format!("--target={triple}")];
     base.extend(extra);
-    base.extend(sv(&[opt, "-g", lang.std, "-fno-omit-frame-pointer", "-fno-stack-protector"]));
+    base.extend(sv(&[
+        opt,
+        "-g",
+        lang.std,
+        "-fno-omit-frame-pointer",
+        "-fno-stack-protector",
+    ]));
 
     let mut res = Map::new();
     res.insert("lang".into(), json!(lang.id));
@@ -286,7 +340,15 @@ pub fn build(req: &Value, lang: &Lang, ctl: Option<&mut InputCtl>) -> Value {
 
     // 2) Ligação estática (facilita gdb/qemu); cai para dinâmica se faltar libc.a.
     let mut link = base.clone();
-    link.extend(sv(&[lang.src, lang.nobuf, "-o", "prog", "-fuse-ld=lld", "-static", "-lm"]));
+    link.extend(sv(&[
+        lang.src,
+        lang.nobuf,
+        "-o",
+        "prog",
+        "-fuse-ld=lld",
+        "-static",
+        "-lm",
+    ]));
     let mut r = run(&link, w, COMPILE_TIMEOUT);
     let mut is_static = true;
     if !r.ok() {
@@ -316,12 +378,30 @@ pub fn build(req: &Value, lang: &Lang, ctl: Option<&mut InputCtl>) -> Value {
 
     // 3) Funções do usuário, desmontagem e seções do binário
     let binary = w.join("prog").to_string_lossy().into_owned();
-    let nm = run(&[cfg.nm.clone(), "--print-size".into(), "--defined-only".into(), binary.clone()], w, COMPILE_TIMEOUT);
+    let nm = run(
+        &[
+            cfg.nm.clone(),
+            "--print-size".into(),
+            "--defined-only".into(),
+            binary.clone(),
+        ],
+        w,
+        COMPILE_TIMEOUT,
+    );
     let mut funcs = parse_nm(&nm.stdout, &names);
-    let mut dis_cmd = vec![cfg.objdump.clone(), "-d".into(), "-l".into(), "--no-show-raw-insn".into()];
+    let mut dis_cmd = vec![
+        cfg.objdump.clone(),
+        "-d".into(),
+        "-l".into(),
+        "--no-show-raw-insn".into(),
+    ];
     dis_cmd.push(format!(
         "--disassemble-symbols={}",
-        funcs.iter().map(|f| f.sym.as_str()).collect::<Vec<_>>().join(",")
+        funcs
+            .iter()
+            .map(|f| f.sym.as_str())
+            .collect::<Vec<_>>()
+            .join(",")
     ));
     if intel {
         dis_cmd.push("--x86-asm-syntax=intel".into());
@@ -330,13 +410,25 @@ pub fn build(req: &Value, lang: &Lang, ctl: Option<&mut InputCtl>) -> Value {
     commands.push(shown(&dis_cmd));
     let dis_text = run(&dis_cmd, w, COMPILE_TIMEOUT).stdout;
     let mut disasm = parse_objdump(&dis_text, lang.src);
-    let sections = parse_sections(&run(&[cfg.objdump.clone(), "-h".into(), binary], w, COMPILE_TIMEOUT).stdout);
+    let sections = parse_sections(
+        &run(
+            &[cfg.objdump.clone(), "-h".into(), binary],
+            w,
+            COMPILE_TIMEOUT,
+        )
+        .stdout,
+    );
 
     // instruções (endereço, texto original) para o trace detectar chamadas
     let insns: Vec<(u64, String)> = disasm
         .iter()
         .filter(|a| a["kind"] == "insn")
-        .map(|a| (a["addr"].as_u64().unwrap_or(0), a["t"].as_str().unwrap_or("").to_string()))
+        .map(|a| {
+            (
+                a["addr"].as_u64().unwrap_or(0),
+                a["t"].as_str().unwrap_or("").to_string(),
+            )
+        })
         .collect();
 
     if lang.cxx {
@@ -354,14 +446,19 @@ pub fn build(req: &Value, lang: &Lang, ctl: Option<&mut InputCtl>) -> Value {
     res.insert("disasm".into(), json!(disasm));
     res.insert(
         "functions".into(),
-        json!(funcs.iter().map(|f| json!({"name": f.name, "start": f.start, "end": f.end})).collect::<Vec<_>>()),
+        json!(funcs
+            .iter()
+            .map(|f| json!({"name": f.name, "start": f.start, "end": f.end}))
+            .collect::<Vec<_>>()),
     );
     res.insert("sections".into(), json!(sections));
     res.insert("static".into(), json!(is_static));
 
     if let Some(ctl) = ctl.filter(|_| req["trace"].as_bool().unwrap_or(false)) {
         ctl.set_base(finish(res.clone(), true, commands.clone(), diag.clone()));
-        let t = trace(w, arch, lang.src, "main", &funcs, &insns, max_steps, is_static, ctl);
+        let t = trace(
+            w, arch, lang.src, "main", &funcs, &insns, max_steps, is_static, ctl,
+        );
         res.insert("trace".into(), t);
     }
     finish(res, true, commands, diag)
@@ -373,7 +470,11 @@ pub fn build(req: &Value, lang: &Lang, ctl: Option<&mut InputCtl>) -> Value {
 /// Tipos cujo valor é um endereço: `int *` (C/C++), `&T`, `*mut T` e `Box<T>` (Rust).
 fn is_ptr_type(ty: &str) -> bool {
     let t = ty.trim();
-    t.ends_with('*') || t.starts_with('&') || t.starts_with("*mut ") || t.starts_with("*const ") || t.starts_with("alloc::boxed::Box<")
+    t.ends_with('*')
+        || t.starts_with('&')
+        || t.starts_with("*mut ")
+        || t.starts_with("*const ")
+        || t.starts_with("alloc::boxed::Box<")
 }
 
 struct GlobalInfo {
@@ -407,10 +508,18 @@ struct Tracer<'a> {
 
 impl<'a> Tracer<'a> {
     fn sp_name(&self) -> &'static str {
-        if self.x86 { "rsp" } else { "sp" }
+        if self.x86 {
+            "rsp"
+        } else {
+            "sp"
+        }
     }
     fn fp_name(&self) -> &'static str {
-        if self.x86 { "rbp" } else { "x29" }
+        if self.x86 {
+            "rbp"
+        } else {
+            "x29"
+        }
     }
 
     fn in_user(&self, pc: u64) -> bool {
@@ -437,8 +546,17 @@ impl<'a> Tracer<'a> {
         if !self.x86 {
             return Some(pc + 4);
         }
-        let v = self.g.cmd(&format!("-data-disassemble -s {pc:#x} -e {:#x} -- 0", pc + 16)).ok()?;
-        v["asm_insns"].as_array()?.get(1).and_then(|i| parse_num(i["address"].as_str()?))
+        let v = self
+            .g
+            .cmd(&format!(
+                "-data-disassemble -s {pc:#x} -e {:#x} -- 0",
+                pc + 16
+            ))
+            .ok()?;
+        v["asm_insns"]
+            .as_array()?
+            .get(1)
+            .and_then(|i| parse_num(i["address"].as_str()?))
     }
 
     fn setup(&mut self) -> Result<(), String> {
@@ -462,12 +580,15 @@ impl<'a> Tracer<'a> {
         self.g.cmd("-file-exec-and-symbols prog")?;
         let _ = self.g.console("set startup-with-shell on");
         let _ = self.g.console("set disable-randomization on");
-        self.g.cmd("-exec-arguments < stdin.fifo >> stdout.txt 2>&1")?;
+        self.g
+            .cmd("-exec-arguments < stdin.fifo >> stdout.txt 2>&1")?;
         self.g.cmd(&format!("-break-insert -t *{}", self.entry))?;
         self.g.cmd("-exec-run")?;
         let stop = self.g.wait_stopped()?;
         let groups = self.g.cmd("-list-thread-groups")?;
-        self.pid = groups["groups"][0]["pid"].as_str().and_then(|p| p.parse().ok());
+        self.pid = groups["groups"][0]["pid"]
+            .as_str()
+            .and_then(|p| p.parse().ok());
         Ok(stop)
     }
 
@@ -494,7 +615,10 @@ impl<'a> Tracer<'a> {
         let mut last = String::new();
         let mut connected = false;
         for _ in 0..50 {
-            match self.g.cmd(&format!("-target-select remote 127.0.0.1:{port}")) {
+            match self
+                .g
+                .cmd(&format!("-target-select remote 127.0.0.1:{port}"))
+            {
                 Ok(_) => {
                     connected = true;
                     break;
@@ -516,8 +640,8 @@ impl<'a> Tracer<'a> {
     fn init_regs(&mut self) -> Result<(), String> {
         let wanted: Vec<String> = if self.x86 {
             sv(&[
-                "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "r8", "r9", "r10", "r11", "r12", "r13",
-                "r14", "r15", "rip", "eflags",
+                "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp", "r8", "r9", "r10", "r11",
+                "r12", "r13", "r14", "r15", "rip", "eflags",
             ])
         } else {
             let mut v: Vec<String> = (0..31).map(|i| format!("x{i}")).collect();
@@ -531,7 +655,12 @@ impl<'a> Tracer<'a> {
             .unwrap_or_default();
         self.regs = wanted
             .into_iter()
-            .filter_map(|w| names.iter().position(|n| *n == w).map(|i| (w, i.to_string())))
+            .filter_map(|w| {
+                names
+                    .iter()
+                    .position(|n| *n == w)
+                    .map(|i| (w, i.to_string()))
+            })
             .collect();
         Ok(())
     }
@@ -540,19 +669,30 @@ impl<'a> Tracer<'a> {
     fn record(&mut self) -> Result<Value, String> {
         // registradores
         let idx: Vec<&str> = self.regs.iter().map(|(_, i)| i.as_str()).collect();
-        let rv = self.g.cmd(&format!("-data-list-register-values --skip-unavailable x {}", idx.join(" ")))?;
+        let rv = self.g.cmd(&format!(
+            "-data-list-register-values --skip-unavailable x {}",
+            idx.join(" ")
+        ))?;
         let by_num: HashMap<String, String> = rv["register-values"]
             .as_array()
             .map(|a| {
                 a.iter()
-                    .map(|r| (r["number"].as_str().unwrap_or("").to_string(), r["value"].as_str().unwrap_or("").to_string()))
+                    .map(|r| {
+                        (
+                            r["number"].as_str().unwrap_or("").to_string(),
+                            r["value"].as_str().unwrap_or("").to_string(),
+                        )
+                    })
                     .collect()
             })
             .unwrap_or_default();
         let mut regs = Map::new();
         for (name, num) in &self.regs {
             if let Some(v) = by_num.get(num) {
-                let shown = parse_num(v).filter(|_| v.starts_with("0x")).map(|n| format!("{n:#018x}")).unwrap_or(v.clone());
+                let shown = parse_num(v)
+                    .filter(|_| v.starts_with("0x"))
+                    .map(|n| format!("{n:#018x}"))
+                    .unwrap_or(v.clone());
                 regs.insert(name.clone(), json!(shown));
             }
         }
@@ -561,7 +701,9 @@ impl<'a> Tracer<'a> {
         let fp0 = reg(self.fp_name());
 
         // frames
-        let fv = self.g.cmd(&format!("-stack-list-frames 0 {}", MAX_FRAMES))?;
+        let fv = self
+            .g
+            .cmd(&format!("-stack-list-frames 0 {}", MAX_FRAMES))?;
         let list: Vec<Value> = fv["stack"].as_array().cloned().unwrap_or_default();
         let addr_of = |f: &Value| f["addr"].as_str().and_then(parse_num).unwrap_or(0);
         let n_user = list.iter().take_while(|f| self.in_user(addr_of(f))).count();
@@ -577,7 +719,10 @@ impl<'a> Tracer<'a> {
             let f = &list[l];
             // código de biblioteca expandido inline numa função do usuário (ex.: vec!
             // e Box::new no Rust): pertence ao frame do usuário logo abaixo
-            if f["file"].as_str().is_some_and(|file| !file.ends_with(self.src)) {
+            if f["file"]
+                .as_str()
+                .is_some_and(|file| !file.ends_with(self.src))
+            {
                 continue;
             }
             let func = f["func"].as_str().unwrap_or("?").to_string();
@@ -586,7 +731,10 @@ impl<'a> Tracer<'a> {
             let fp = if l == 0 {
                 fp0
             } else {
-                self.g.eval(l, &format!("${}", self.fp_name())).ok().and_then(|s| parse_num(&s))
+                self.g
+                    .eval(l, &format!("${}", self.fp_name()))
+                    .ok()
+                    .and_then(|s| parse_num(&s))
             };
             let top = sps.get(l + 1).copied().flatten();
             let vars = self.frame_vars(l, &func, top, fp, sp)?;
@@ -599,7 +747,13 @@ impl<'a> Tracer<'a> {
         // janela de bytes da pilha
         let red = if self.x86 { 128 } else { 0 };
         let lo = sp0.saturating_sub(red) & !7;
-        let hi = sps.iter().skip(1).flatten().max().copied().unwrap_or(sp0 + 256);
+        let hi = sps
+            .iter()
+            .skip(1)
+            .flatten()
+            .max()
+            .copied()
+            .unwrap_or(sp0 + 256);
         let hi = ((hi + 7) & !7).min(lo + MAX_STACK).max(lo);
         let stack_hex = self.g.read_hex(lo, hi - lo).unwrap_or_default();
 
@@ -634,14 +788,22 @@ impl<'a> Tracer<'a> {
             .chain(globals.iter().cloned())
             .filter_map(|v| {
                 let p = v["ptr"].as_u64()?;
-                Some((p, v["name"].as_str()?.to_string(), v["type"].as_str().unwrap_or("").to_string()))
+                Some((
+                    p,
+                    v["name"].as_str()?.to_string(),
+                    v["type"].as_str().unwrap_or("").to_string(),
+                ))
             })
             .collect();
         for (p, from, ty) in candidates {
             if p == 0 || (p >= lo && p < hi) || !seen.insert(p) {
                 continue;
             }
-            if let Some(h) = self.g.read_hex(p, POINTEE_BYTES).or_else(|| self.g.read_hex(p, 16)) {
+            if let Some(h) = self
+                .g
+                .read_hex(p, POINTEE_BYTES)
+                .or_else(|| self.g.read_hex(p, 16))
+            {
                 pointees.push(json!({"addr": p, "hex": h, "from": from, "type": ty}));
             }
         }
@@ -649,7 +811,9 @@ impl<'a> Tracer<'a> {
         // linha do primeiro frame no fonte do usuário (pula os frames inline de biblioteca)
         let line0 = list.iter().take(n_user.max(1)).find_map(|f| {
             let file = f["file"].as_str().unwrap_or("");
-            file.ends_with(self.src).then(|| f["line"].as_str()?.parse::<u64>().ok()).flatten()
+            file.ends_with(self.src)
+                .then(|| f["line"].as_str()?.parse::<u64>().ok())
+                .flatten()
         });
         Ok(json!({
             "pc": list.first().map(addr_of).unwrap_or(0),
@@ -672,7 +836,9 @@ impl<'a> Tracer<'a> {
         fp: Option<u64>,
         sp: Option<u64>,
     ) -> Result<Vec<Value>, String> {
-        let v = self.g.cmd(&format!("-stack-list-variables --thread 1 --frame {level} --all-values"))?;
+        let v = self.g.cmd(&format!(
+            "-stack-list-variables --thread 1 --frame {level} --all-values"
+        ))?;
         let vars = v["variables"].as_array().cloned().unwrap_or_default();
         let mut types: Option<HashMap<String, String>> = None;
         let mut out = Vec::new();
@@ -683,26 +849,49 @@ impl<'a> Tracer<'a> {
                 continue;
             }
             let value = var["value"].as_str().unwrap_or("").to_string();
-            let key = (func.to_string(), top.unwrap_or(0), fp.unwrap_or(0), sp.unwrap_or(0), name.clone());
+            let key = (
+                func.to_string(),
+                top.unwrap_or(0),
+                fp.unwrap_or(0),
+                sp.unwrap_or(0),
+                name.clone(),
+            );
             if !self.var_cache.contains_key(&key) {
                 if types.is_none() {
-                    let sv = self.g.cmd(&format!("-stack-list-variables --thread 1 --frame {level} --simple-values"))?;
+                    let sv = self.g.cmd(&format!(
+                        "-stack-list-variables --thread 1 --frame {level} --simple-values"
+                    ))?;
                     types = Some(
                         sv["variables"]
                             .as_array()
                             .map(|a| {
                                 a.iter()
                                     .map(|x| {
-                                        (x["name"].as_str().unwrap_or("").to_string(), x["type"].as_str().unwrap_or("").to_string())
+                                        (
+                                            x["name"].as_str().unwrap_or("").to_string(),
+                                            x["type"].as_str().unwrap_or("").to_string(),
+                                        )
                                     })
                                     .collect()
                             })
                             .unwrap_or_default(),
                     );
                 }
-                let addr = self.g.eval(level, &format!("&({name})")).ok().and_then(|s| parse_num(&s));
-                let size = self.g.eval(level, &format!("sizeof({name})")).ok().and_then(|s| parse_num(&s)).unwrap_or(0);
-                let ty = types.as_ref().and_then(|t| t.get(&name).cloned()).unwrap_or_default();
+                let addr = self
+                    .g
+                    .eval(level, &format!("&({name})"))
+                    .ok()
+                    .and_then(|s| parse_num(&s));
+                let size = self
+                    .g
+                    .eval(level, &format!("sizeof({name})"))
+                    .ok()
+                    .and_then(|s| parse_num(&s))
+                    .unwrap_or(0);
+                let ty = types
+                    .as_ref()
+                    .and_then(|t| t.get(&name).cloned())
+                    .unwrap_or_default();
                 self.var_cache.insert(key.clone(), (addr, size, ty));
             }
             let (addr, size, ty) = self.var_cache[&key].clone();
@@ -719,18 +908,40 @@ impl<'a> Tracer<'a> {
     }
 
     fn load_globals(&mut self) -> Vec<GlobalInfo> {
-        let Ok(v) = self.g.cmd("-symbol-info-variables") else { return vec![] };
+        let Ok(v) = self.g.cmd("-symbol-info-variables") else {
+            return vec![];
+        };
         let mut out = Vec::new();
-        let files = v["symbols"]["debug"].as_array().cloned().unwrap_or_default();
+        let files = v["symbols"]["debug"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
         for f in files {
             if !f["filename"].as_str().unwrap_or("").ends_with(self.src) {
                 continue;
             }
             for s in f["symbols"].as_array().cloned().unwrap_or_default() {
                 let name = s["name"].as_str().unwrap_or("").to_string();
-                let Some(addr) = self.g.eval(0, &format!("&({name})")).ok().and_then(|x| parse_num(&x)) else { continue };
-                let size = self.g.eval(0, &format!("sizeof({name})")).ok().and_then(|x| parse_num(&x)).unwrap_or(0);
-                out.push(GlobalInfo { name, ty: s["type"].as_str().unwrap_or("").to_string(), addr, size });
+                let Some(addr) = self
+                    .g
+                    .eval(0, &format!("&({name})"))
+                    .ok()
+                    .and_then(|x| parse_num(&x))
+                else {
+                    continue;
+                };
+                let size = self
+                    .g
+                    .eval(0, &format!("sizeof({name})"))
+                    .ok()
+                    .and_then(|x| parse_num(&x))
+                    .unwrap_or(0);
+                out.push(GlobalInfo {
+                    name,
+                    ty: s["type"].as_str().unwrap_or("").to_string(),
+                    addr,
+                    size,
+                });
             }
         }
         out
@@ -744,10 +955,18 @@ impl<'a> Tracer<'a> {
             let reason = stop["reason"].as_str().unwrap_or("").to_string();
             if reason.starts_with("exited") {
                 self.status = "exited".into();
-                self.exit_code = Some(stop["exit-code"].as_str().and_then(|c| i64::from_str_radix(c, 8).ok()).unwrap_or(0));
+                self.exit_code = Some(
+                    stop["exit-code"]
+                        .as_str()
+                        .and_then(|c| i64::from_str_radix(c, 8).ok())
+                        .unwrap_or(0),
+                );
                 return;
             }
-            let pc = stop["frame"]["addr"].as_str().and_then(parse_num).unwrap_or(0);
+            let pc = stop["frame"]["addr"]
+                .as_str()
+                .and_then(parse_num)
+                .unwrap_or(0);
             if self.steps.len() >= max_steps {
                 self.status = "limit".into();
                 return;
@@ -787,7 +1006,10 @@ impl<'a> Tracer<'a> {
                 Ok(s) => self.steps.push(s),
                 Err(e) => {
                     self.status = "error".into();
-                    self.error = Some(format!("erro ao ler o estado no passo {}: {e}", self.steps.len()));
+                    self.error = Some(format!(
+                        "erro ao ler o estado no passo {}: {e}",
+                        self.steps.len()
+                    ));
                     return;
                 }
             }
@@ -801,7 +1023,11 @@ impl<'a> Tracer<'a> {
                 return;
             }
             prev_pc = Some(pc);
-            match self.g.cmd("-exec-step-instruction").and_then(|_| self.g.wait_stopped()) {
+            match self
+                .g
+                .cmd("-exec-step-instruction")
+                .and_then(|_| self.g.wait_stopped())
+            {
                 Ok(s) => stop = s,
                 Err(e) => {
                     self.status = "error".into();
@@ -815,10 +1041,18 @@ impl<'a> Tracer<'a> {
     fn finish(&mut self) {
         match self.status.as_str() {
             "returned" => {
-                if let Ok(s) = self.g.cmd("-exec-continue").and_then(|_| self.wait_stopped_input()) {
+                if let Ok(s) = self
+                    .g
+                    .cmd("-exec-continue")
+                    .and_then(|_| self.wait_stopped_input())
+                {
                     if s["reason"].as_str().unwrap_or("").starts_with("exited") {
-                        self.exit_code =
-                            Some(s["exit-code"].as_str().and_then(|c| i64::from_str_radix(c, 8).ok()).unwrap_or(0));
+                        self.exit_code = Some(
+                            s["exit-code"]
+                                .as_str()
+                                .and_then(|c| i64::from_str_radix(c, 8).ok())
+                                .unwrap_or(0),
+                        );
                     }
                 }
             }
@@ -828,7 +1062,9 @@ impl<'a> Tracer<'a> {
                 // cancelamento ou tempo esgotado), o gdb não atende comandos até
                 // ele parar: mata o processo diretamente
                 if let Some(pid) = self.pid {
-                    let _ = Command::new("kill").args(["-KILL", &pid.to_string()]).status();
+                    let _ = Command::new("kill")
+                        .args(["-KILL", &pid.to_string()])
+                        .status();
                     let _ = self.g.wait_stopped_for(Duration::from_secs(2));
                 }
                 let _ = self.g.console("kill");
@@ -845,7 +1081,10 @@ fn spawn_qemu(w: &Path, port: u16, is_static: bool, fifo: &Path) -> Result<Child
     })?;
     let fin = File::open(fifo).map_err(|e| e.to_string())?;
     // em modo append, o eco da entrada (session.rs) fica na ordem certa
-    let fout = OpenOptions::new().append(true).open(w.join("stdout.txt")).map_err(|e| e.to_string())?;
+    let fout = OpenOptions::new()
+        .append(true)
+        .open(w.join("stdout.txt"))
+        .map_err(|e| e.to_string())?;
     let ferr = fout.try_clone().map_err(|e| e.to_string())?;
     let mut cmd = Command::new(&qemu);
     cmd.arg("-g").arg(port.to_string());
@@ -895,14 +1134,18 @@ pub(crate) fn trace(
 
     let fifo = match ctl.open_stdin(w) {
         Ok(f) => f,
-        Err(e) => return json!({"steps": [], "status": "error", "error": e, "meta": meta, "stdout": ""}),
+        Err(e) => {
+            return json!({"steps": [], "status": "error", "error": e, "meta": meta, "stdout": ""})
+        }
     };
     let mut qemu = None;
     let port = free_port();
     if !x86 {
         match spawn_qemu(w, port, is_static, &fifo) {
             Ok(c) => qemu = Some(c),
-            Err(e) => return json!({"steps": [], "status": "error", "error": e, "meta": meta, "stdout": ""}),
+            Err(e) => {
+                return json!({"steps": [], "status": "error", "error": e, "meta": meta, "stdout": ""})
+            }
         }
     }
 
@@ -934,8 +1177,16 @@ pub(crate) fn trace(
         exit_code: None,
         error: None,
     };
-    let sysroot = if is_static { "/".to_string() } else { cfg.sysroot.clone() };
-    let started = if x86 { t.start_native() } else { t.start_remote(port, &sysroot) };
+    let sysroot = if is_static {
+        "/".to_string()
+    } else {
+        cfg.sysroot.clone()
+    };
+    let started = if x86 {
+        t.start_native()
+    } else {
+        t.start_remote(port, &sysroot)
+    };
     match started.and_then(|s| t.init_regs().map(|_| s)) {
         Ok(stop) => {
             t.run_loop(stop, max_steps, Duration::from_secs(TRACE_SECS - 20));

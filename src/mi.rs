@@ -135,14 +135,20 @@ pub fn parse_record(rest: &str) -> (String, Value) {
         Some(i) => (&rest[..i], &rest[i + 1..]),
         None => (rest, ""),
     };
-    let mut p = P { s: results.as_bytes(), i: 0 };
+    let mut p = P {
+        s: results.as_bytes(),
+        i: 0,
+    };
     (class.trim().to_string(), Value::Object(p.results(None)))
 }
 
 /// Primeiro número de uma string do gdb ("0x7ffe...", "(int *) 0x...", "12", "-3").
 pub fn parse_num(s: &str) -> Option<u64> {
     if let Some(i) = s.find("0x") {
-        let h: String = s[i + 2..].chars().take_while(|c| c.is_ascii_hexdigit()).collect();
+        let h: String = s[i + 2..]
+            .chars()
+            .take_while(|c| c.is_ascii_hexdigit())
+            .collect();
         return u64::from_str_radix(&h, 16).ok();
     }
     let t = s.trim();
@@ -199,7 +205,14 @@ impl Gdb {
                 }
             }
         });
-        Ok(Gdb { child, stdin, rx, tok: 0, deadline, log: String::new() })
+        Ok(Gdb {
+            child,
+            stdin,
+            rx,
+            tok: 0,
+            deadline,
+            log: String::new(),
+        })
     }
 
     fn next_line(&mut self) -> Result<String, String> {
@@ -213,8 +226,15 @@ impl Gdb {
 
     fn note(&mut self, line: &str) {
         if let Some(s) = line.strip_prefix('~').or_else(|| line.strip_prefix('&')) {
-            let mut p = P { s: s.as_bytes(), i: 0 };
-            let text = if s.starts_with('"') { p.cstring() } else { s.to_string() };
+            let mut p = P {
+                s: s.as_bytes(),
+                i: 0,
+            };
+            let text = if s.starts_with('"') {
+                p.cstring()
+            } else {
+                s.to_string()
+            };
             if self.log.len() < 20_000 {
                 self.log.push_str(&text);
             }
@@ -265,11 +285,18 @@ impl Gdb {
             if now >= self.deadline {
                 return Err("tempo limite do gdb esgotado".into());
             }
-            let line = match self.rx.recv_timeout(end.min(self.deadline).saturating_duration_since(now)) {
+            let line = match self
+                .rx
+                .recv_timeout(end.min(self.deadline).saturating_duration_since(now))
+            {
                 Ok(l) => l,
-                Err(RecvTimeoutError::Timeout) if Instant::now() < self.deadline => return Ok(None),
+                Err(RecvTimeoutError::Timeout) if Instant::now() < self.deadline => {
+                    return Ok(None)
+                }
                 Err(RecvTimeoutError::Timeout) => return Err("tempo limite do gdb esgotado".into()),
-                Err(RecvTimeoutError::Disconnected) => return Err("o gdb terminou inesperadamente".into()),
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err("o gdb terminou inesperadamente".into())
+                }
             };
             if let Some(rest) = line.strip_prefix("*stopped") {
                 let rest = rest.strip_prefix(',').unwrap_or(rest);
@@ -281,7 +308,10 @@ impl Gdb {
 
     /// Avalia uma expressão no frame `level`.
     pub fn eval(&mut self, level: usize, expr: &str) -> Result<String, String> {
-        let v = self.cmd(&format!("-data-evaluate-expression --thread 1 --frame {level} {}", q(expr)))?;
+        let v = self.cmd(&format!(
+            "-data-evaluate-expression --thread 1 --frame {level} {}",
+            q(expr)
+        ))?;
         Ok(v["value"].as_str().unwrap_or("").to_string())
     }
 
@@ -289,7 +319,9 @@ impl Gdb {
         if len == 0 {
             return Some(String::new());
         }
-        let v = self.cmd(&format!("-data-read-memory-bytes {addr:#x} {len}")).ok()?;
+        let v = self
+            .cmd(&format!("-data-read-memory-bytes {addr:#x} {len}"))
+            .ok()?;
         let mem = v["memory"].as_array()?;
         let s: String = mem.iter().filter_map(|m| m["contents"].as_str()).collect();
         (!s.is_empty()).then_some(s)

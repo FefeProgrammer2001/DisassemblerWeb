@@ -66,16 +66,27 @@ pub fn run(cmd: &[String], cwd: &Path, timeout: Duration) -> Output {
     let stdout = String::from_utf8_lossy(&t1.join().unwrap_or_default()).into_owned();
     let mut stderr = String::from_utf8_lossy(&t2.join().unwrap_or_default()).into_owned();
     if code == 124 {
-        stderr.push_str(&format!("\ntempo esgotado ({}s): {}\n", timeout.as_secs(), cmd[0]));
+        stderr.push_str(&format!(
+            "\ntempo esgotado ({}s): {}\n",
+            timeout.as_secs(),
+            cmd[0]
+        ));
     }
-    Output { code, stdout, stderr }
+    Output {
+        code,
+        stdout,
+        stderr,
+    }
 }
 
 /// Linha de comando legível (com aspas simples quando necessário).
 pub fn shown(cmd: &[String]) -> String {
     cmd.iter()
         .map(|a| {
-            if !a.is_empty() && a.chars().all(|c| c.is_ascii_alphanumeric() || "-_=./,:+@%".contains(c)) {
+            if !a.is_empty()
+                && a.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "-_=./,:+@%".contains(c))
+            {
                 a.clone()
             } else {
                 format!("'{}'", a.replace('\'', "'\\''"))
@@ -95,7 +106,10 @@ pub struct TempDir(PathBuf);
 impl TempDir {
     pub fn new() -> std::io::Result<Self> {
         static N: AtomicU64 = AtomicU64::new(0);
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.subsec_nanos()).unwrap_or(0);
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.subsec_nanos())
+            .unwrap_or(0);
         let p = std::env::temp_dir().join(format!(
             "asmviz-{}-{}-{:x}",
             std::process::id(),
@@ -173,7 +187,10 @@ pub fn mkfifo(path: &Path) -> Result<(), String> {
     if out.status.success() {
         Ok(())
     } else {
-        Err(format!("mkfifo falhou: {}", String::from_utf8_lossy(&out.stderr).trim()))
+        Err(format!(
+            "mkfifo falhou: {}",
+            String::from_utf8_lossy(&out.stderr).trim()
+        ))
     }
 }
 
@@ -183,13 +200,23 @@ pub fn mkfifo(path: &Path) -> Result<(), String> {
 /// qemu-user (que faz o read no host em nome do programa ARM64) e para a JVM.
 pub fn blocked_on_stdin(pid: u32) -> bool {
     // read / readv / pread64 da arquitetura do host
-    const READS: &[u64] = if cfg!(target_arch = "aarch64") { &[63, 65, 67] } else { &[0, 19, 17] };
-    let Ok(tasks) = std::fs::read_dir(format!("/proc/{pid}/task")) else { return false };
+    const READS: &[u64] = if cfg!(target_arch = "aarch64") {
+        &[63, 65, 67]
+    } else {
+        &[0, 19, 17]
+    };
+    let Ok(tasks) = std::fs::read_dir(format!("/proc/{pid}/task")) else {
+        return false;
+    };
     tasks.flatten().any(|t| {
-        let Ok(s) = std::fs::read_to_string(t.path().join("syscall")) else { return false };
+        let Ok(s) = std::fs::read_to_string(t.path().join("syscall")) else {
+            return false;
+        };
         let mut f = s.split_whitespace();
         let nr = f.next().and_then(|n| n.parse::<u64>().ok());
-        let fd = f.next().and_then(|a| u64::from_str_radix(a.trim_start_matches("0x"), 16).ok());
+        let fd = f
+            .next()
+            .and_then(|a| u64::from_str_radix(a.trim_start_matches("0x"), 16).ok());
         matches!((nr, fd), (Some(n), Some(0)) if READS.contains(&n))
     })
 }
