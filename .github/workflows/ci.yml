@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      # TODO: 9 pre-existing lints; remove continue-on-error once fixed
+      - run: cargo clippy --all-targets -- -D warnings
+        continue-on-error: true
+      - run: cargo build --release --locked
+      - uses: oven-sh/setup-bun@v2
+      - run: bunx prettier --check static/
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: lint-build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: asmviz:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Run container
+        run: |
+          docker run -d --name asmviz -p 36476:36476 \
+            --read-only --tmpfs /tmp:exec,size=1g \
+            --cap-drop ALL --security-opt no-new-privileges asmviz:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:36476/api/tools && break || sleep 2
+          done
+      - name: Build a C program through the API
+        run: scripts/smoke.sh http://127.0.0.1:36476
+      - if: failure()
+        run: docker logs asmviz

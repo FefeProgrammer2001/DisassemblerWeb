@@ -1,0 +1,19 @@
+# Used on the server (~/Documents/Site). Image tag comes from IMAGE_TAG, set by the deploy workflow.
+services:
+  asmviz:
+    image: ghcr.io/fefeprogrammer2001/asmviz:${IMAGE_TAG:-latest}
+    ports:
+      - "36476:36476"
+    environment:
+      MAX_JOBS: "4"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:exec,size=1g
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 512
+    mem_limit: 3g
+    cpus: 2
