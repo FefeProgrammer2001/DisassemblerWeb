@@ -15,6 +15,9 @@ A cada passo o site destaca a linha do código-fonte, a instrução atual e o es
 - **C/C++/Rust**: registradores, frames da pilha com variáveis (endereço, tipo, valor),
   heap apontado por ponteiros, globais/estáticas, funções no `.text` e os bytes brutos
   da pilha (aba "Pilha (bytes)").
+  A aba "Pilha (visual)" desenha cada chamada como um bloco, com variáveis, `rbp`/`x29`
+  salvo, endereço de retorno (e a linha para onde volta), espaços de alinhamento, red
+  zone, os marcadores de `rsp`/`rbp` e setas para ponteiros e para a cadeia de frames.
 - **Java**: frames da JVM com as variáveis locais por *slot*, objetos e vetores no heap
   (identificados pelo id do depurador) e os campos `static` (área de métodos).
 

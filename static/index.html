@@ -171,6 +171,50 @@
   .b { padding: 0 1px; border-radius: 2px; }
   .b.chg { outline: 1px solid var(--warn); background: var(--chg); }
 
+  /* pilha visual */
+  .sv { position: relative; padding-right: 46px; font: 11.5px/1.35 var(--mono); }
+  .sv svg.arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .sv-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font: 11px system-ui, sans-serif; margin-bottom: 8px; }
+  .sv-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .sv-hint { color: var(--muted); font: 11px system-ui, sans-serif; text-align: center; padding: 4px; border: 1px dashed var(--border); border-radius: 6px; }
+  .sv-frame { border: 1px solid var(--border); border-left: 4px solid var(--fc); border-radius: 6px; margin: 6px 0; background: rgba(255,255,255,.015); }
+  .sv-frame.cur { border-color: var(--accent); border-left-color: var(--fc); box-shadow: 0 0 0 1px rgba(90,169,255,.25); }
+  .sv-frame.enter { animation: sv-enter .35s ease-out; }
+  @keyframes sv-enter { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  .sv-fh { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; padding: 4px 8px; font-family: system-ui, sans-serif; }
+  .sv-fh .fn { color: var(--fc); font-weight: 700; font-family: var(--mono); }
+  .sv-fh .meta { color: var(--muted); font-size: 11px; }
+  .sv-rows { padding: 0 6px 6px; }
+  .sv-row { display: grid; grid-template-columns: 52px 104px 1fr; align-items: stretch; }
+  .sv-mk { display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end; padding-right: 4px; gap: 1px; }
+  .sv-mk span { font-size: 10.5px; font-weight: 700; padding: 0 4px; border-radius: 3px; white-space: nowrap; transform: translateY(50%); }
+  .sv-mk .sp { background: var(--accent); color: #08111f; }
+  .sv-mk .fp { background: var(--accent-2); color: #0d0820; }
+  .sv-ad { color: var(--muted); font-size: 10.5px; padding: 0 6px; display: flex; flex-direction: column; justify-content: flex-end; text-align: right; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .sv-ad b { color: var(--text); font-weight: 500; }
+  .sv-cell { margin: 1px 0; border-radius: 4px; padding: 2px 8px; display: flex; flex-direction: column; justify-content: center; min-width: 0;
+             background: var(--cbg, var(--panel-2)); border: 1px solid var(--cbd, var(--border)); }
+  .sv-cell .top { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+  .sv-cell .nm { font-weight: 700; white-space: nowrap; }
+  .sv-cell .ty { color: var(--muted); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .sv-cell .sz { color: var(--muted); font-size: 10px; white-space: nowrap; }
+  .sv-cell .val { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sv-cell .val .ptr { color: var(--accent); }
+  .sv-cell.sys { --cbg: rgba(157,123,255,.10); --cbd: rgba(157,123,255,.35); }
+  .sv-cell.sys .nm { color: var(--accent-2); }
+  .sv-cell.ret { --cbg: rgba(240,180,60,.10); --cbd: rgba(240,180,60,.35); }
+  .sv-cell.ret .nm { color: var(--warn); }
+  .sv-cell.pad { background: repeating-linear-gradient(135deg, transparent 0 5px, rgba(255,255,255,.04) 5px 10px); border-style: dashed; color: var(--muted); font-size: 10.5px; }
+  .sv-cell.red { opacity: .7; border-style: dashed; }
+  .sv-cell.chg { animation: sv-flash 1s ease-out; outline: 1px solid var(--warn); }
+  @keyframes sv-flash { from { background: rgba(240,180,60,.55); } }
+  .sv-row.hot .sv-cell { box-shadow: 0 0 0 2px var(--accent); }
+  @media (max-width: 520px) {
+    .sv { padding-right: 34px; }
+    .sv-row { grid-template-columns: 40px 92px 1fr; }
+  }
+  .sv-pending { padding: 4px 8px; color: var(--warn); font: 11px system-ui, sans-serif; }
+
   /* ---------- rodapé ---------- */
   footer { border-top: 1px solid var(--border); background: var(--panel); }
   .controls { display: flex; align-items: center; gap: 6px; padding: 8px 16px; flex-wrap: wrap; }
@@ -273,6 +317,7 @@
       <div class="tabs" id="memTabs">
         <button data-tab="map" class="active">Mapa</button>
         <button data-tab="hex" id="tabHex">Pilha (bytes)</button>
+        <button data-tab="vis" id="tabVis" title="Frames da pilha desenhados como blocos, com ponteiros e endereços de retorno">Pilha (visual)</button>
       </div>
     </div>
     <div class="regs" id="regs"></div>

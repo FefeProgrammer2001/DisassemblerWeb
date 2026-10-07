@@ -332,7 +332,7 @@ const el = {
   maxSteps: $('#maxSteps'), examples: $('#examples'),
   btnCompile: $('#btnCompile'), btnRun: $('#btnRun'), tools: $('#tools'),
   asmView: $('#asmView'), asmTitle: $('#asmTitle'), showDir: $('#showDir'), dirWrap: $('#dirWrap'),
-  tabDisasm: $('#tabDisasm'), tabS: $('#tabS'), tabHex: $('#tabHex'),
+  tabDisasm: $('#tabDisasm'), tabS: $('#tabS'), tabHex: $('#tabHex'), tabVis: $('#tabVis'),
   codeTitle: $('#codeTitle'), brandLang: $('#brandLang'), brandTarget: $('#brandTarget'),
   regs: $('#regs'), memView: $('#memView'),
   timeline: $('#timeline'), stepInfo: $('#stepInfo'), bPlay: $('#bPlay'),
@@ -391,6 +391,7 @@ function applyLangUI() {
   el.syntaxWrap.classList.toggle('hidden', java || el.arch.value !== 'x86_64');
   el.tabS.classList.toggle('hidden', java);
   el.tabHex.classList.toggle('hidden', java);
+  el.tabVis.classList.toggle('hidden', java);
   el.tabDisasm.textContent = java ? 'javap -c' : 'Binário';
   if (!java) {
     el.tabS.textContent = S_TAB[S.lang];
@@ -845,6 +846,7 @@ function renderStep() {
   }
   renderRegs(st, prev);
   if (S.memTab === 'map') renderMap(st, prev);
+  else if (S.memTab === 'vis') renderVisual(st, prev);
   else renderHex(st, prev);
 }
 
@@ -1113,6 +1115,190 @@ function renderHex(st, prev) {
   el.memView.scrollTop = scroll;
 }
 
+// ---------- aba "Pilha (visual)" (C/C++/Rust) ----------
+// Cada chamada ativa é um bloco; dentro dele, os slots de memória (variáveis,
+// fp salvo, endereço de retorno e espaços sem uso) do endereço mais alto ao
+// mais baixo. Setas: ponteiros para a pilha e a cadeia de fp salvos.
+
+/// Lê 8 bytes little-endian da cópia da pilha (null se fora dela).
+function stackQword(st, addr) {
+  const i = (addr - st.stack.lo) * 2;
+  if (i < 0 || i + 16 > st.stack.hex.length) return null;
+  let h = '';
+  for (let k = 14; k >= 0; k -= 2) h += st.stack.hex.substr(i + k, 2);
+  return parseInt(h, 16);
+}
+
+/// "main()+0x2c · linha 13" para um endereço de código.
+function describeCode(addr) {
+  const fn = (S.result.functions || []).find((f) => addr >= f.start && addr < f.end);
+  if (!fn) return 'fora do programa (código da biblioteca/runtime)';
+  // a instrução de chamada é a última antes do endereço de retorno
+  let line = null;
+  for (const a of (S.result.disasm || [])) {
+    if (a.kind === 'insn' && a.addr != null && a.addr < addr && a.addr >= fn.start && a.cline != null) line = a.cline;
+  }
+  return `${fn.name}()+0x${(addr - fn.start).toString(16)}${line != null ? ' · linha ' + line : ''}`;
+}
+
+function stackSlots(st, f, fi, colors) {
+  const m = S.meta;
+  const arm = m.pc !== 'rip';
+  const hi = f.top != null ? f.top : f.sp;
+  let lo = f.sp;
+  const built = f.fp != null && f.fp >= f.sp - (fi === 0 ? m.redZone || 0 : 0) && f.fp < hi;
+  const slots = [];
+  // variáveis: as que caem dentro deste frame (frame atual pode usar a red zone)
+  const pending = [];
+  const floor = fi === 0 ? f.sp - (m.redZone || 0) : f.sp;
+  for (const v of f.vars) {
+    if (v.addr == null || !v.size) continue;
+    if (v.addr >= floor && v.addr + v.size <= hi) {
+      slots.push({ kind: 'var', addr: v.addr, size: v.size, v, ci: colors.get(`${fi}:${v.name}`) });
+      lo = Math.min(lo, v.addr);
+    } else if (v.addr < floor - 4096 || v.addr > hi + 4096) {
+      // static/global: fica no mapa, não na pilha
+    } else pending.push(v);
+  }
+  // fp aponta para o fp salvo (x86: logo abaixo do endereço de retorno; ARM64: par x29/x30)
+  if (built) {
+    slots.push({ kind: 'fp', addr: f.fp, size: 8, val: stackQword(st, f.fp) });
+    if (arm) slots.push({ kind: 'ret', addr: f.fp + 8, size: 8, val: stackQword(st, f.fp + 8) });
+  }
+  if (!arm && f.top != null && f.top - 8 >= f.sp) slots.push({ kind: 'ret', addr: f.top - 8, size: 8, val: stackQword(st, f.top - 8) });
+  // ordena do endereço mais alto ao mais baixo e descarta sobreposições
+  slots.sort((a, b) => b.addr - a.addr);
+  const out = [];
+  let cursor = hi;
+  const pad = (from, to) => { // [to, from)
+    // divide no sp para o marcador cair na borda certa
+    const cuts = [from, ...(f.sp < from && f.sp > to ? [f.sp] : []), to];
+    for (let k = 0; k + 1 < cuts.length; k++) {
+      if (cuts[k] > cuts[k + 1]) out.push({ kind: 'pad', addr: cuts[k + 1], size: cuts[k] - cuts[k + 1], red: cuts[k] <= f.sp });
+    }
+  };
+  for (const sl of slots) {
+    if (sl.addr + sl.size > cursor) continue;
+    if (sl.addr + sl.size < cursor) pad(cursor, sl.addr + sl.size);
+    out.push(sl);
+    cursor = sl.addr;
+  }
+  if (cursor > lo) pad(cursor, lo);
+  for (const sl of out) if (sl.addr < f.sp && sl.kind !== 'pad') sl.red = true;
+  return { slots: out, pending, built };
+}
+
+function renderVisual(st, prev) {
+  const m = S.meta;
+  const arm = m.pc !== 'rip';
+  const colors = stackColors(st);
+  const prevMap = prevValueMap(prev);
+  const prevQ = (addr) => (prev ? stackQword(prev, addr) : null);
+  const newFrames = prev ? Math.max(0, st.frames.length - prev.frames.length) : 0;
+  const sp = st.frames[0] ? st.frames[0].sp : null;
+  const fpReg = st.frames[0] ? st.frames[0].fp : null;
+  const fpName = m.fp;
+  let html = '<div class="sv-legend">' +
+    '<span><i style="background:rgba(157,123,255,.5)"></i>' + (arm ? 'x29 (fp) salvo' : 'rbp salvo') + '</span>' +
+    '<span><i style="background:rgba(240,180,60,.5)"></i>' + (arm ? 'x30 (lr) salvo = endereço de retorno' : 'endereço de retorno') + '</span>' +
+    '<span><i style="background:repeating-linear-gradient(135deg,#444 0 3px,transparent 3px 6px)"></i>sem uso / alinhamento</span>' +
+    '<span>↑ endereços altos · a pilha cresce para baixo ↓</span></div>';
+  html += '<div class="sv-hint">frames anteriores (início do programa, runtime da libc)</div>';
+
+  const frameColor = (fi) => lineColor(st.frames.length - fi + 7, 1);
+  for (let fi = st.frames.length - 1; fi >= 0; fi--) {
+    const f = st.frames[fi];
+    const { slots, pending, built } = stackSlots(st, f, fi, colors);
+    const size = f.top != null && f.sp != null ? f.top - f.sp : null;
+    const base = built ? f.fp : f.sp;
+    const baseName = built ? fpName : m.sp;
+    const off = (a) => { const d = a - base; return `${baseName}${d >= 0 ? '+' : '−'}${Math.abs(d)}`; };
+    html += `<div class="sv-frame${fi === 0 ? ' cur' : ''}${fi < newFrames ? ' enter' : ''}" style="--fc:${frameColor(fi)}">` +
+      `<div class="sv-fh"><span class="fn">${esc(f.func)}()</span>` +
+      `<span class="meta">linha ${f.line ?? '?'}</span>` +
+      (size != null ? `<span class="meta">${size} bytes</span>` : '') +
+      `<span class="meta">${fi === 0 ? 'executando agora' : 'esperando a chamada acima retornar'}</span></div>`;
+    if (pending.length) {
+      html += `<div class="sv-pending">⚠ Prólogo/epílogo em execução: ${pending.map((v) => esc(v.name)).join(', ')} ainda não ${pending.length > 1 ? 'têm' : 'tem'} espaço reservado neste frame (ou já perdeu).</div>`;
+    }
+    html += '<div class="sv-rows">';
+    if (!slots.length) html += '<div class="sv-pending" style="color:var(--muted)">frame vazio (a função acabou de ser chamada)</div>';
+    for (const sl of slots) {
+      const h = Math.round(Math.min(sl.kind === 'pad' ? 30 : 72, Math.max(sl.kind === 'pad' ? 16 : 34, 22 + sl.size * 1.2)));
+      const marks = [];
+      if (fi === 0 && sp != null && sl.addr === sp) marks.push(`<span class="sp">${m.sp} ▶</span>`);
+      if (fi === 0 && fpReg != null && sl.addr === fpReg && built) marks.push(`<span class="fp">${fpName} ▶</span>`);
+      let cell, cls = '', title = `${hx(sl.addr)} … ${hx(sl.addr + sl.size - 1)} (${sl.size} bytes)`, data = '';
+      if (sl.kind === 'var') {
+        const v = sl.v;
+        const key = varKey({ ...v, func: f.func, fi }, st);
+        const chg = prevMap && prevMap.has(key) && prevMap.get(key) !== v.value;
+        cls = chg ? ' chg' : '';
+        const c = lineColor(sl.ci + 3, 1);
+        const ptr = v.ptr != null ? ` <span class="ptr">→ ${esc(describePtr(v.ptr, st))}</span>` : '';
+        const val = v.error ? `<span style="color:var(--err)">${esc(v.error)}</span>` : esc(v.value);
+        data = ` data-a="${sl.addr}" data-s="${sl.size}"${v.ptr != null ? ` data-p="${v.ptr}"` : ''}`;
+        title += ` · ${v.name}: ${v.type || ''}${v.arg ? ' (argumento)' : ''}`;
+        cell = `<div class="sv-cell${cls}" style="--cbg:${lineColor(sl.ci + 3, .16)};--cbd:${lineColor(sl.ci + 3, .55)}">` +
+          `<div class="top"><span class="nm" style="color:${c}">${esc(v.name)}</span><span class="ty">${esc(v.type || '')}${v.arg ? ' · argumento' : ''}${sl.red ? ' · red zone' : ''}</span><span class="sz">${sl.size} B</span></div>` +
+          `<div class="val">${val}${ptr}</div></div>`;
+      } else if (sl.kind === 'fp') {
+        const chg = prev && prevQ(sl.addr) !== sl.val;
+        data = ` data-a="${sl.addr}" data-s="8"${sl.val ? ` data-p="${sl.val}" data-chain="1"` : ''}`;
+        cell = `<div class="sv-cell sys${chg && prev ? ' chg' : ''}"><div class="top"><span class="nm">${arm ? 'x29' : 'rbp'} salvo</span>` +
+          `<span class="ty">frame de quem chamou</span><span class="sz">8 B</span></div>` +
+          `<div class="val">${sl.val != null ? hx(sl.val) : '?'}</div></div>`;
+      } else if (sl.kind === 'ret') {
+        const chg = prev && prevQ(sl.addr) !== sl.val;
+        data = ` data-a="${sl.addr}" data-s="8"`;
+        cell = `<div class="sv-cell ret${chg && prev ? ' chg' : ''}"><div class="top"><span class="nm">${arm ? 'x30 (lr) salvo' : 'retorno'}</span>` +
+          `<span class="ty">para onde ${esc(f.func)}() volta</span><span class="sz">8 B</span></div>` +
+          `<div class="val">${sl.val != null ? hx(sl.val) + ' → ' + esc(describeCode(sl.val)) : '?'}</div></div>`;
+      } else {
+        title += sl.red ? ' · abaixo do sp (red zone)' : ' · não usado por variáveis (alinhamento, temporários ou registradores salvos)';
+        cell = `<div class="sv-cell pad">${sl.size} B ${sl.red ? 'red zone' : 'sem uso / alinhamento'}</div>`;
+      }
+      if (sl.red && sl.kind !== 'pad') cell = cell.replace('class="sv-cell', 'class="sv-cell red');
+      html += `<div class="sv-row" style="height:${h}px" title="${esc(title)}"${data}>` +
+        `<div class="sv-mk">${marks.join('')}</div>` +
+        `<div class="sv-ad"><b>${hx(sl.addr)}</b>${sl.kind !== 'pad' && h >= 30 ? off(sl.addr) : ''}</div>${cell}</div>`;
+    }
+    html += '</div></div>';
+  }
+  html += `<div class="sv-hint">⋮ espaço livre: a próxima chamada ocupa a memória abaixo de ${m.sp} = ${hx(sp)} ⋮</div>`;
+
+  const scroll = el.memView.scrollTop;
+  el.memView.innerHTML = `<div class="sv">${html}<svg class="arrows"></svg></div>`;
+  el.memView.scrollTop = scroll;
+  drawStackArrows(el.memView.querySelector('.sv'));
+}
+
+/// Setas à direita: ponteiros que apontam para a pilha e a cadeia de fp salvos.
+function drawStackArrows(root) {
+  const svg = root.querySelector('svg.arrows');
+  const rows = [...root.querySelectorAll('.sv-row[data-a]')];
+  const find = (p) => rows.find((r) => p >= +r.dataset.a && p < +r.dataset.a + +r.dataset.s);
+  const box = root.getBoundingClientRect();
+  let paths = '', lane = 0;
+  for (const src of rows) {
+    if (!src.dataset.p) continue;
+    const dst = find(+src.dataset.p);
+    if (!dst || dst === src) continue;
+    const a = src.querySelector('.sv-cell').getBoundingClientRect(), b = dst.querySelector('.sv-cell').getBoundingClientRect();
+    const y1 = a.top - box.top + a.height / 2, y2 = b.top - box.top + b.height / 2;
+    const x1 = a.right - box.left, x2 = b.right - box.left;
+    const chain = !!src.dataset.chain;
+    const x = Math.max(x1, x2) + 18 + (lane++ % 3) * 7;
+    const color = chain ? 'var(--accent-2)' : 'var(--accent)';
+    paths += `<path d="M ${x1} ${y1} C ${x} ${y1}, ${x} ${y2}, ${x2 + 1} ${y2}" fill="none" stroke="${color}" stroke-width="1.6"` +
+      `${chain ? ' stroke-dasharray="4 3" opacity=".75"' : ''} marker-end="url(#svh-${chain ? 'c' : 'p'})"/>`;
+    src.addEventListener('mouseenter', () => dst.classList.add('hot'));
+    src.addEventListener('mouseleave', () => dst.classList.remove('hot'));
+  }
+  const head = (id, c) => `<marker id="svh-${id}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L8 4 L0 8 z" fill="${c}"/></marker>`;
+  svg.innerHTML = `<defs>${head('p', 'var(--accent)')}${head('c', 'var(--accent-2)')}</defs>${paths}`;
+}
+
 // ---------- Java: frames da JVM, heap e campos static ----------
 function renderJvmInfo(st) {
   el.regs.className = 'jinfo';
@@ -1275,6 +1461,12 @@ function syncTabs() {
 for (const b of $$('#asmTabs button')) b.onclick = () => { S.asmTab = b.dataset.tab; syncTabs(); renderAsm(); };
 for (const b of $$('#memTabs button')) b.onclick = () => { S.memTab = b.dataset.tab; syncTabs(); renderStep(); };
 el.showDir.onchange = renderAsm;
+// as setas da pilha visual dependem da largura do painel
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (S.memTab === 'vis' && cur() && !resultIsJava()) renderStep(); }, 150);
+});
 
 for (const [node, key] of [[el.arch, 'arch'], [el.syntax, 'syntax'], [el.opt, 'opt']]) {
   node.value = store.get('asmviz.' + key, node.value);
