@@ -171,9 +171,32 @@ fn handle_static(path: &str) -> Response<std::io::Cursor<Vec<u8>>> {
         return Response::from_string("proibido").with_status_code(403);
     }
     match std::fs::read(config().static_dir.join(rel)) {
-        Ok(data) => Response::from_data(data).with_header(Header::from_bytes("Content-Type", mime(rel)).unwrap()),
+        Ok(mut data) => {
+            if rel == "index.html" {
+                data = versioned_assets(data);
+            }
+            Response::from_data(data)
+                .with_header(Header::from_bytes("Content-Type", mime(rel)).unwrap())
+                // proxies (Cloudflare) e navegadores devem revalidar: senão uma
+                // página nova pode rodar com um app.js antigo guardado em cache
+                .with_header(Header::from_bytes("Cache-Control", "no-cache").unwrap())
+        }
         Err(_) => Response::from_string("não encontrado").with_status_code(404),
     }
+}
+
+/// Acrescenta `?v=<mtime>` às referências a app.js no index.html: cada versão
+/// publicada ganha uma URL nova, que nenhum cache tem guardada.
+fn versioned_assets(html: Vec<u8>) -> Vec<u8> {
+    let mtime = std::fs::metadata(config().static_dir.join("app.js"))
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    String::from_utf8_lossy(&html)
+        .replace("src=\"app.js\"", &format!("src=\"app.js?v={mtime}\""))
+        .into_bytes()
 }
 
 fn handle(mut req: Request) {
